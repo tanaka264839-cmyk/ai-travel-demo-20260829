@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>AI ツバサ・トラベル — Live Ops Dashboard</title>
+<style>
+  :root{
+    --bg-0:#05070d; --bg-1:#0a0f1c; --bg-2:#111a2e;
+    --line:#1e2a44; --line-2:#2a3a5c;
+    --text:#e6edff; --dim:#8896b8; --mute:#5b6784;
+    --cy:#3ff0ff; --mg:#ff4dc9; --gd:#ffcf5c; --gr:#6cff9a; --or:#ff8a3c; --pu:#a06bff;
+    --glow-cy:0 0 12px rgba(63,240,255,.55), 0 0 32px rgba(63,240,255,.15);
+    --glow-mg:0 0 12px rgba(255,77,201,.55), 0 0 32px rgba(255,77,201,.15);
+    --glow-gd:0 0 12px rgba(255,207,92,.55), 0 0 32px rgba(255,207,92,.15);
+    --glow-gr:0 0 12px rgba(108,255,154,.55), 0 0 32px rgba(108,255,154,.15);
+    --skin:#f5d7b2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:
+      radial-gradient(1200px 700px at 20% -10%, rgba(63,240,255,.10), transparent 60%),
+      radial-gradient(1000px 700px at 100% 110%, rgba(255,77,201,.10), transparent 60%),
+      linear-gradient(180deg,var(--bg-0) 0%, var(--bg-1) 60%, #06080f 100%);
+    color:var(--text);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    letter-spacing:.01em;
+  }
+  /* ============= HEADER ============= */
+  header{
+    position:fixed; inset:0 0 auto 0; height:64px; z-index:50;
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
+    padding:0 22px;
+    background:linear-gradient(180deg,rgba(10,15,28,.92),rgba(10,15,28,.65));
+    border-bottom:1px solid var(--line);
+    backdrop-filter:blur(10px);
+  }
+  .brand{display:flex; align-items:center; gap:12px}
+  .brand .logo{
+    width:34px; height:34px; border-radius:9px;
+    background:conic-gradient(from 120deg, var(--cy), var(--pu), var(--mg), var(--gd), var(--cy));
+    box-shadow:var(--glow-cy);
+    position:relative;
+  }
+  .brand .logo::after{
+    content:""; position:absolute; inset:5px; border-radius:6px; background:var(--bg-0);
+  }
+  .brand .logo::before{
+    content:"AI"; position:absolute; inset:0; display:grid; place-items:center;
+    font-weight:800; font-size:12px; letter-spacing:.06em; color:var(--cy); z-index:1;
+    text-shadow:0 0 8px rgba(63,240,255,.6);
+  }
+  .brand .title{font-weight:700; font-size:16px; letter-spacing:.06em}
+  .brand .title small{color:var(--dim); margin-left:6px; font-weight:500; letter-spacing:.12em; font-size:11px}
+  .brand .status{
+    margin-left:14px; display:inline-flex; align-items:center; gap:6px;
+    color:var(--gr); font-size:11px; letter-spacing:.14em; font-weight:600;
+  }
+  .brand .status .dot{
+    width:8px; height:8px; border-radius:50%; background:var(--gr);
+    box-shadow:0 0 10px var(--gr); animation:pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse{50%{opacity:.35; transform:scale(.85)}}
+
+  .tabs{display:flex; gap:6px; padding:4px; background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:10px}
+  .tab{
+    appearance:none; border:0; background:transparent; color:var(--dim);
+    padding:8px 16px; border-radius:7px; font-weight:600; letter-spacing:.05em;
+    font-size:12px; cursor:pointer; transition:.2s;
+  }
+  .tab:hover{color:var(--text)}
+  .tab.active{background:linear-gradient(180deg, rgba(63,240,255,.18), rgba(63,240,255,.06)); color:var(--cy); box-shadow:inset 0 0 0 1px rgba(63,240,255,.35)}
+
+  .header-right{display:flex; align-items:center; gap:18px; justify-content:flex-end}
+  .clock{font-family:"JetBrains Mono","Consolas",monospace; font-size:14px; letter-spacing:.06em; color:var(--dim)}
+  .clock .val{color:var(--text); font-weight:700; margin-left:6px}
+  .weather{color:var(--dim); font-size:12px}
+  .weather b{color:var(--text); font-weight:600}
+  .fps{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--gr); padding:4px 8px; border:1px solid rgba(108,255,154,.35); border-radius:6px}
+
+  /* ============= LAYOUT ============= */
+  .stage{position:fixed; inset:64px 0 148px 0; display:grid; grid-template-columns:1fr 340px; gap:14px; padding:14px}
+  .view{display:none; height:100%}
+  .view.active{display:block}
+  .view-office{display:none; grid-template-columns:1fr 340px; gap:14px; height:100%}
+  .view-office.active{display:grid}
+
+  .panel{
+    background:linear-gradient(180deg, rgba(17,26,46,.75), rgba(10,15,28,.55));
+    border:1px solid var(--line);
+    border-radius:14px; position:relative; overflow:hidden;
+  }
+  .panel::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(90deg, transparent 98%, rgba(63,240,255,.08) 100%),
+      linear-gradient(0deg, transparent 98%, rgba(63,240,255,.08) 100%);
+    background-size:40px 40px;
+    mask:linear-gradient(180deg, transparent, black 20%, black 80%, transparent);
+  }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; border-bottom:1px solid var(--line);
+    font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:700;
+  }
+  .panel-head .tag{color:var(--cy); text-shadow:0 0 8px rgba(63,240,255,.5)}
+  .panel-head .live{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:3px 8px; border-radius:20px;
+    background:rgba(255,77,201,.14); color:var(--mg); font-size:10px; letter-spacing:.14em
+  }
+  .panel-head .live::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--mg); box-shadow:0 0 8px var(--mg); animation:pulse 1.2s infinite}
+
+  /* ============= ISOMETRIC OFFICE ============= */
+  .office-panel{padding:0; position:relative; height:100%; min-height:0}
+  .office-scene{
+    position:absolute; inset:0;
+    perspective:1600px;
+    perspective-origin:50% 45%;
+    overflow:hidden;
+    background:linear-gradient(180deg, #0b132b 0%, #0a1122 55%, #060a15 100%);
+  }
+  /* ----- Kobe skyline behind the floor ----- */
+  .sky{position:absolute; inset:0; overflow:hidden}
+  .sky .stars{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(1px 1px at 8% 12%, #ffffff 40%, transparent 42%),
+      radial-gradient(1.2px 1.2px at 20% 22%, #cbd5ff 40%, transparent 42%),
+      radial-gradient(1px 1px at 33% 8%, #ffe6f2 40%, transparent 42%),
+      radial-gradient(1.4px 1.4px at 45% 18%, #ffffff 40%, transparent 42%),
+      radial-gradient(1px 1px at 60% 10%, #d9ffe0 40%, transparent 42%),
+      radial-gradient(1.2px 1.2px at 72% 22%, #ffffff 40%, transparent 42%),
+      radial-gradient(1px 1px at 85% 14%, #ffd0e0 40%, transparent 42%),
+      radial-gradient(1.4px 1.4px at 94% 25%, #ffffff 40%, transparent 42%),
+      radial-gradient(1px 1px at 15% 34%, #b6c7ff 40%, transparent 42%),
+      radial-gradient(1px 1px at 55% 30%, #ffffff 40%, transparent 42%),
+      radial-gradient(1.2px 1.2px at 78% 34%, #eaf0ff 40%, transparent 42%),
+      radial-gradient(1.4px 1.4px at 40% 42%, #ffffff 40%, transparent 42%);
+    opacity:.7;
+    animation:twinkle 6s ease-in-out infinite;
+  }
+  @keyframes twinkle{50%{opacity:.4}}
+  .sky .moon{
+    position:absolute; top:44px; right:11%;
+    width:56px; height:56px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #fff5d0 60%, #f2c98a 100%);
+    box-shadow:0 0 40px rgba(255,220,150,.35), inset -8px -6px 0 rgba(0,0,0,.12);
+  }
+  .sky .moon::after{
+    content:""; position:absolute; inset:-14px; border-radius:50%;
+    box-shadow:0 0 60px 4px rgba(255,220,150,.15);
+  }
+  .sky .aurora{
+    position:absolute; inset:0 0 30% 0;
+    background:
+      radial-gradient(60% 40% at 20% 40%, rgba(160,107,255,.10), transparent 70%),
+      radial-gradient(50% 40% at 80% 30%, rgba(63,240,255,.12), transparent 70%),
+      radial-gradient(70% 45% at 50% 55%, rgba(255,77,201,.08), transparent 70%);
+    filter:blur(4px);
+    animation:aurora 12s ease-in-out infinite;
+  }
+  @keyframes aurora{50%{transform:translateY(10px) scale(1.02)}}
+  .sky .cityscape{position:absolute; left:0; right:0; bottom:33%; height:36%}
+  .sky .cityscape svg{width:100%; height:100%; display:block}
+  .sky .drone{
+    position:absolute; width:14px; height:6px;
+    background:linear-gradient(90deg, var(--cy), var(--pu));
+    border-radius:50%;
+    box-shadow:0 0 12px var(--cy), 0 6px 20px rgba(63,240,255,.25);
+  }
+  .sky .drone::before,.sky .drone::after{
+    content:""; position:absolute; top:-3px; width:5px; height:5px; border-radius:50%;
+    background:rgba(255,255,255,.5); box-shadow:0 0 8px rgba(255,255,255,.6);
+    animation:blink 1s infinite;
+  }
+  .sky .drone::before{left:-3px}
+  .sky .drone::after{right:-3px; animation-delay:.5s}
+  .sky .drone.d1{top:110px; left:8%; animation:drone1 22s linear infinite}
+  .sky .drone.d2{top:170px; left:35%; animation:drone2 30s linear infinite}
+  .sky .drone.d3{top:80px;  left:65%; animation:drone3 26s linear infinite; transform:scaleX(-1)}
+  @keyframes drone1{0%{transform:translateX(0)} 100%{transform:translateX(120vw)}}
+  @keyframes drone2{0%{transform:translate(0,0)} 50%{transform:translate(60vw,-14px)} 100%{transform:translate(120vw,0)}}
+  @keyframes drone3{0%{transform:translateX(0) scaleX(-1)} 100%{transform:translateX(-90vw) scaleX(-1)}}
+  @keyframes blink{50%{opacity:.35}}
+  .sky .airplane{
+    position:absolute; top:64px; left:-40px; width:36px; height:8px;
+    animation:airplane 34s linear infinite;
+  }
+  .sky .airplane::before{
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(4px 3px at 24px 4px, #ffffff 60%, transparent 70%),
+      linear-gradient(90deg, transparent 0, #d0d6e6 30%, #d0d6e6 65%, transparent 100%);
+    filter:drop-shadow(0 0 4px rgba(255,255,255,.5));
+    border-radius:6px;
+  }
+  .sky .airplane::after{
+    content:""; position:absolute; left:-80px; top:3px; width:80px; height:2px;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.4));
+  }
+  @keyframes airplane{0%{transform:translateX(0)} 100%{transform:translateX(110vw)}}
+
+  .floor{
+    position:absolute; left:50%; top:56%;
+    width:960px; height:640px;
+    transform-style:preserve-3d;
+    transform:translate(-50%,-50%) rotateX(58deg) rotateZ(-38deg);
+    animation:float 8s ease-in-out infinite;
+  }
+  @keyframes float{50%{transform:translate(-50%,-52%) rotateX(58deg) rotateZ(-38deg)}}
+
+  .grid-plate{
+    position:absolute; inset:0; border-radius:8px;
+    background:
+      linear-gradient(0deg, rgba(63,240,255,.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(63,240,255,.08) 1px, transparent 1px),
+      linear-gradient(180deg, #0e1830, #0a1225);
+    background-size:40px 40px, 40px 40px, 100% 100%;
+    box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 0 60px rgba(63,240,255,.06);
+    border:1px solid rgba(63,240,255,.18);
+  }
+  .grid-plate::after{
+    /* subtle carpet gradient */
+    content:""; position:absolute; inset:12px; border-radius:6px;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(63,240,255,.03), transparent 60%),
+      radial-gradient(circle at 75% 70%, rgba(255,77,201,.03), transparent 60%);
+    pointer-events:none;
+  }
+
+  .room{
+    position:absolute;
+    border-radius:6px;
+    background:linear-gradient(180deg, rgba(20,30,55,.7), rgba(12,20,40,.4));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .room .rlabel{
+    position:absolute; top:8px; left:12px;
+    font-size:10px; letter-spacing:.28em; font-weight:800;
+    color:rgba(230,237,255,.55);
+    text-shadow:0 0 8px rgba(0,0,0,.8);
+    transform:rotateZ(38deg) rotateX(-58deg);
+    transform-origin:left top;
+  }
+  .room .rmeta{
+    position:absolute; top:26px; left:12px;
+    color:var(--dim); font-size:9px; letter-spacing:.06em;
+    transform:rotateZ(38deg) rotateX(-58deg);
+    transform-origin:left top;
+  }
+
+  .r-ceo{left:520px; top:20px; width:420px; height:280px; border-top:2px solid var(--gd); box-shadow:inset 0 0 0 1px rgba(255,207,92,.22), inset 0 0 40px rgba(255,207,92,.08)}
+  .r-sales{left:20px; top:20px; width:480px; height:280px; border-top:2px solid var(--cy); box-shadow:inset 0 0 0 1px rgba(63,240,255,.22), inset 0 0 40px rgba(63,240,255,.08)}
+  .r-acct{left:20px; top:320px; width:380px; height:300px; border-top:2px solid var(--mg); box-shadow:inset 0 0 0 1px rgba(255,77,201,.22), inset 0 0 40px rgba(255,77,201,.08)}
+  .r-meet{left:420px; top:320px; width:520px; height:300px; border-top:2px solid var(--gr); box-shadow:inset 0 0 0 1px rgba(108,255,154,.22), inset 0 0 40px rgba(108,255,154,.08)}
+
+  /* room furniture — cheap but readable from isometric */
+  .furn{position:absolute; background:rgba(255,255,255,.08); border-radius:3px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  .furn.desk{background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.04))}
+  .furn.screen{background:linear-gradient(180deg, rgba(63,240,255,.5), rgba(63,240,255,.15)); box-shadow:0 0 10px rgba(63,240,255,.6)}
+  .furn.screen.mg{background:linear-gradient(180deg, rgba(255,77,201,.5), rgba(255,77,201,.15)); box-shadow:0 0 10px rgba(255,77,201,.6)}
+  .furn.screen.gd{background:linear-gradient(180deg, rgba(255,207,92,.55), rgba(255,207,92,.15)); box-shadow:0 0 10px rgba(255,207,92,.6)}
+  .furn.screen.gr{background:linear-gradient(180deg, rgba(108,255,154,.5), rgba(108,255,154,.15)); box-shadow:0 0 10px rgba(108,255,154,.6)}
+  .furn.table{background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.06)); border-radius:8px}
+  .furn.chair{background:rgba(255,255,255,.1); border-radius:4px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+  .furn.planter{background:radial-gradient(closest-side, #4bde7e, #1a7a3d); border-radius:50%; box-shadow:0 0 12px rgba(75,222,126,.6); animation:sway 4s ease-in-out infinite}
+  @keyframes sway{50%{transform:rotate(4deg) scale(1.03)}}
+  .furn.serverrack{background:linear-gradient(180deg, #22304d, #131c30); box-shadow:inset 0 0 0 1px rgba(63,240,255,.35)}
+  .furn.serverrack::after{
+    content:""; position:absolute; inset:4px; border-radius:2px;
+    background:
+      linear-gradient(180deg, rgba(63,240,255,.65) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(255,77,201,.6) 1px, transparent 1px);
+    background-size:100% 6px, 100% 6px;
+    background-position:0 0, 0 3px;
+    animation:blinkr 1.5s infinite steps(2);
+  }
+  @keyframes blinkr{50%{opacity:.55}}
+  .furn.rug{
+    background:
+      repeating-linear-gradient(45deg, rgba(63,240,255,.08) 0 6px, rgba(255,77,201,.06) 6px 12px);
+    border-radius:12px;
+    box-shadow:none;
+  }
+  .furn.coffee{
+    background:linear-gradient(180deg, #6c4a2c, #3a2818);
+    border-radius:3px 3px 5px 5px;
+    box-shadow:inset 0 0 0 1px rgba(255,207,92,.35), 0 0 8px rgba(255,207,92,.2);
+  }
+  .furn.coffee::after{
+    content:""; position:absolute; left:50%; top:-6px; width:6px; height:8px;
+    transform:translateX(-50%);
+    background:radial-gradient(closest-side, rgba(230,230,230,.6), transparent 70%);
+    filter:blur(1.5px);
+    animation:steam 2s ease-in-out infinite;
+  }
+  @keyframes steam{0%{opacity:.2; transform:translate(-50%,0)} 50%{opacity:.6; transform:translate(-50%,-4px)} 100%{opacity:0; transform:translate(-50%,-8px)}}
+  .furn.whiteboard{
+    background:linear-gradient(180deg, #eaf1ff, #cbd6ee);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.15), 0 0 6px rgba(255,255,255,.2);
+    border-radius:2px;
+  }
+  .furn.whiteboard::after{
+    content:""; position:absolute; inset:3px; border-radius:1px;
+    background:
+      linear-gradient(90deg, transparent 0 8px, rgba(63,240,255,.55) 8px 26px, transparent 26px 30px, rgba(255,77,201,.55) 30px 48px, transparent 48px 54px, rgba(255,207,92,.55) 54px 72px, transparent 72px 100%);
+    opacity:.85;
+  }
+  .furn.bookshelf{
+    background:linear-gradient(180deg, #3a2b1c, #1e150c);
+    box-shadow:inset 0 0 0 1px rgba(255,207,92,.25);
+  }
+  .furn.bookshelf::after{
+    content:""; position:absolute; inset:3px; border-radius:1px;
+    background:
+      linear-gradient(90deg,
+        #d9534f 0 6px, #f0ad4e 6px 12px, #5cb85c 12px 18px, #5bc0de 18px 24px,
+        #a06bff 24px 30px, #ff4dc9 30px 36px, #ffcf5c 36px 42px, #6cff9a 42px 48px,
+        #3ff0ff 48px 54px, #ff8a3c 54px 60px);
+    opacity:.75;
+  }
+  .furn.clock{
+    border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #ffffff 55%, #cbd5e1 100%);
+    box-shadow:0 0 6px rgba(255,255,255,.4), inset 0 0 0 1px rgba(0,0,0,.2);
+  }
+  .furn.clock::before,.furn.clock::after{
+    content:""; position:absolute; left:50%; top:50%; background:#0a0e1a;
+    transform-origin:center bottom;
+  }
+  .furn.clock::before{
+    width:2px; height:40%; margin-left:-1px; margin-top:-40%;
+    animation:tickH 40s linear infinite;
+  }
+  .furn.clock::after{
+    width:1.5px; height:48%; margin-left:-.75px; margin-top:-48%;
+    background:var(--mg);
+    animation:tickM 6s linear infinite;
+  }
+  @keyframes tickH{100%{transform:rotate(360deg)}}
+  @keyframes tickM{100%{transform:rotate(360deg)}}
+  .furn.poster{
+    background:linear-gradient(160deg, #0a0e1a 40%, #1e2a44 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,207,92,.5), 0 0 8px rgba(255,207,92,.15);
+  }
+  .furn.poster::after{
+    content:"OKINAWA"; position:absolute; inset:0; display:grid; place-items:center;
+    color:var(--gd); font-size:7px; letter-spacing:.2em; font-weight:800;
+    text-shadow:0 0 6px rgba(255,207,92,.6);
+  }
+  .furn.poster.kyoto::after{content:"KYOTO"}
+  .furn.poster.hokkaido{box-shadow:inset 0 0 0 1px rgba(63,240,255,.5), 0 0 8px rgba(63,240,255,.15)}
+  .furn.poster.hokkaido::after{content:"HOKKAIDO"; color:var(--cy); text-shadow:0 0 6px rgba(63,240,255,.6)}
+  .furn.window{
+    background:
+      linear-gradient(180deg, rgba(63,240,255,.35), rgba(160,107,255,.15));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.35), 0 0 20px rgba(63,240,255,.3);
+    overflow:hidden;
+  }
+  .furn.window::before{
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(1.5px 1.5px at 20% 30%, #fff2a0 40%, transparent 42%),
+      radial-gradient(1.5px 1.5px at 50% 60%, #ffd0e0 40%, transparent 42%),
+      radial-gradient(1.5px 1.5px at 75% 40%, #a0ffe0 40%, transparent 42%),
+      radial-gradient(1.5px 1.5px at 85% 70%, #d0e0ff 40%, transparent 42%);
+    animation:winlights 5s ease-in-out infinite;
+  }
+  .furn.window::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent 47%, rgba(255,255,255,.2) 50%, transparent 53%);
+  }
+  @keyframes winlights{50%{opacity:.5}}
+  .furn.paper{
+    background:linear-gradient(180deg, #f5f0e6, #d8ceb8);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+    border-radius:1px;
+  }
+  .furn.paper::after{
+    content:""; position:absolute; inset:2px;
+    background:
+      linear-gradient(180deg, transparent 2px, rgba(0,0,0,.15) 3px, transparent 4px),
+      linear-gradient(180deg, transparent 6px, rgba(0,0,0,.15) 7px, transparent 8px),
+      linear-gradient(180deg, transparent 10px, rgba(0,0,0,.15) 11px, transparent 12px);
+    background-size:100% 4px;
+  }
+  .furn.mug{
+    width:8px; height:8px;
+    background:radial-gradient(closest-side, #6a3fff, #2a1f5c);
+    border-radius:50%;
+    box-shadow:0 0 6px rgba(160,107,255,.5);
+  }
+  .furn.trash{
+    background:linear-gradient(180deg, #2a3550, #171d2e);
+    border-radius:50% 50% 3px 3px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);
+  }
+  .furn.hologram{
+    position:absolute;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(63,240,255,.35) 0%, transparent 65%);
+    border:1px dashed rgba(63,240,255,.5);
+    border-radius:50%;
+    box-shadow:0 0 16px rgba(63,240,255,.4);
+    animation:holoR 8s linear infinite;
+  }
+  @keyframes holoR{100%{transform:rotate(360deg)}}
+  .furn.hologram::after{
+    content:""; position:absolute; inset:20%;
+    background:radial-gradient(circle, rgba(255,255,255,.35), transparent 70%);
+    border-radius:50%;
+    animation:pulse 2s ease-in-out infinite;
+  }
+
+  /* ============= CHARACTER — SVG humanoid ============= */
+  .char{
+    position:absolute; width:22px; height:22px;
+    transform-style:preserve-3d;
+    transition:left 3.2s cubic-bezier(.55,.08,.42,.98), top 3.2s cubic-bezier(.55,.08,.42,.98);
+    z-index:5;
+  }
+  .char .shadow{
+    position:absolute; left:50%; top:50%;
+    width:26px; height:10px;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(closest-side, rgba(0,0,0,.55), transparent 70%);
+    filter:blur(2px);
+    z-index:1;
+  }
+  .char .halo{
+    position:absolute; left:50%; top:50%;
+    width:34px; height:34px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    border:1.4px solid color-mix(in oklab, var(--tint,var(--cy)) 80%, transparent);
+    box-shadow:0 0 14px color-mix(in oklab, var(--tint,var(--cy)) 60%, transparent);
+    animation:ringpulse 2.4s ease-in-out infinite;
+    z-index:1;
+  }
+  @keyframes ringpulse{50%{transform:translate(-50%,-50%) scale(1.15); opacity:.55}}
+  .char .man{
+    position:absolute; left:50%; bottom:6px;
+    transform-origin:bottom center;
+    transform:translateX(-50%) rotateX(-58deg) rotateZ(38deg);
+    z-index:3;
+  }
+  .char .man svg{
+    width:52px; height:96px; display:block;
+    filter:drop-shadow(0 0 8px color-mix(in oklab, var(--tint,var(--cy)) 65%, transparent)) drop-shadow(0 2px 4px rgba(0,0,0,.4));
+    animation:bob 1.4s ease-in-out infinite;
+  }
+  @keyframes bob{50%{transform:translateY(-2px)}}
+  .char.walking .man svg{animation:bob .5s ease-in-out infinite}
+  .char.walking .leg-l{animation:legL .5s ease-in-out infinite}
+  .char.walking .leg-r{animation:legR .5s ease-in-out infinite}
+  .char.walking .arm-l{animation:armL .5s ease-in-out infinite}
+  .char.walking .arm-r{animation:armR .5s ease-in-out infinite}
+  @keyframes legL{0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-1px) rotate(-14deg); transform-origin:center top}}
+  @keyframes legR{0%,100%{transform:translateY(-1px) rotate(-14deg); transform-origin:center top} 50%{transform:translateY(0) rotate(0deg)}}
+  @keyframes armL{0%,100%{transform:rotate(8deg); transform-origin:top center} 50%{transform:rotate(-8deg); transform-origin:top center}}
+  @keyframes armR{0%,100%{transform:rotate(-8deg); transform-origin:top center} 50%{transform:rotate(8deg); transform-origin:top center}}
+  .char .floortag{
+    position:absolute; left:50%; bottom:100px;
+    padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; letter-spacing:.08em;
+    background:rgba(5,7,13,.85); color:var(--text);
+    box-shadow:0 0 0 1px var(--tint,var(--cy)), 0 0 10px color-mix(in oklab, var(--tint,var(--cy)) 55%, transparent);
+    white-space:nowrap;
+    transform:translate(-50%,0) rotateX(-58deg) rotateZ(38deg);
+    transform-origin:bottom center;
+    z-index:4;
+  }
+  .char .speech{
+    position:absolute; left:50%; bottom:120px;
+    max-width:220px; min-width:60px;
+    padding:8px 12px 8px 12px;
+    background:rgba(5,7,13,.94);
+    border:1px solid color-mix(in oklab, var(--tint,var(--cy)) 75%, transparent);
+    border-radius:14px;
+    color:var(--text); font-size:11px; line-height:1.5;
+    white-space:normal;
+    transform:translate(-50%,0) rotateX(-58deg) rotateZ(38deg);
+    transform-origin:bottom center;
+    box-shadow:0 8px 24px rgba(0,0,0,.6), 0 0 20px color-mix(in oklab, var(--tint,var(--cy)) 40%, transparent);
+    opacity:0; pointer-events:none;
+    transition:opacity .35s, transform .35s;
+    z-index:6;
+  }
+  .char .speech.on{opacity:1; transform:translate(-50%,-4px) rotateX(-58deg) rotateZ(38deg)}
+  .char .speech::before{
+    content:""; position:absolute; left:18px; bottom:-6px;
+    width:10px; height:10px; background:inherit;
+    border-right:1px solid color-mix(in oklab, var(--tint,var(--cy)) 75%, transparent);
+    border-bottom:1px solid color-mix(in oklab, var(--tint,var(--cy)) 75%, transparent);
+    transform:rotate(45deg);
+  }
+  .char .speech b{color:var(--tint,var(--cy))}
+
+  .c-kiryu{--tint:var(--gd)}
+  .c-hoshino{--tint:var(--cy)}
+  .c-shiraishi{--tint:var(--mg)}
+  .c-kamiya{--tint:var(--gr)}
+
+  /* legend on the scene */
+  .scene-hud{
+    position:absolute; left:14px; top:14px; z-index:10;
+    display:flex; flex-direction:column; gap:8px;
+    font-size:10px; letter-spacing:.16em; color:var(--dim);
+    background:rgba(6,10,20,.55); padding:10px 12px; border-radius:10px;
+    border:1px solid var(--line); backdrop-filter:blur(4px);
+  }
+  .scene-hud .row{display:flex; align-items:center; gap:8px}
+  .scene-hud .sw{width:10px; height:10px; border-radius:3px; box-shadow:0 0 8px currentColor}
+  .scene-hud .name{color:var(--text); letter-spacing:.06em; font-weight:600}
+
+  .scene-hud-r{
+    position:absolute; right:14px; top:14px; z-index:10; text-align:right;
+    font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--dim);
+    line-height:1.7;
+    background:rgba(6,10,20,.55); padding:10px 12px; border-radius:10px;
+    border:1px solid var(--line); backdrop-filter:blur(4px);
+  }
+  .scene-hud-r b{color:var(--cy)}
+  .scene-hud-r .lat{color:var(--gr)}
+
+  .scan{
+    position:absolute; left:0; right:0; top:0; height:60%;
+    background:linear-gradient(180deg, transparent, rgba(63,240,255,.06) 60%, transparent);
+    pointer-events:none;
+    animation:scan 6.5s linear infinite;
+    z-index:8;
+  }
+  @keyframes scan{
+    0%{transform:translateY(-40%)}
+    100%{transform:translateY(180%)}
+  }
+
+  /* ============= SIDEBAR FEED ============= */
+  .feed{display:flex; flex-direction:column; min-height:0; height:100%}
+  .feed-body{overflow-y:auto; padding:10px 12px; flex:1; min-height:0; display:flex; flex-direction:column; gap:8px}
+  .feed-body::-webkit-scrollbar{width:6px}
+  .feed-body::-webkit-scrollbar-thumb{background:#243154; border-radius:3px}
+  .feed-item{
+    padding:10px 12px; border-radius:9px;
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--line);
+    animation:pop .35s ease-out;
+    position:relative;
+  }
+  .feed-item::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--accent,var(--cy)); border-radius:9px 0 0 9px;
+    box-shadow:0 0 8px var(--accent,var(--cy));
+  }
+  @keyframes pop{from{transform:translateY(-6px); opacity:0} to{transform:translateY(0); opacity:1}}
+  .fi-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:4px}
+  .fi-who{font-size:11px; font-weight:700; color:var(--accent,var(--cy)); letter-spacing:.06em}
+  .fi-time{font-size:10px; color:var(--mute); font-family:"JetBrains Mono",monospace}
+  .fi-body{font-size:12px; color:var(--text); line-height:1.5}
+  .fi-body .kw{color:var(--gd); font-weight:600}
+  .feed-item.act-book{--accent:var(--cy)}
+  .feed-item.act-call{--accent:var(--gr)}
+  .feed-item.act-billing{--accent:var(--mg)}
+  .feed-item.act-order{--accent:var(--gd)}
+  .feed-item.act-mtg{--accent:var(--pu)}
+
+  /* ============= KPI BAR ============= */
+  .kpi-bar{
+    position:fixed; inset:auto 0 0 0; height:134px; z-index:40;
+    display:grid; grid-template-columns:repeat(5,1fr); gap:12px;
+    padding:12px 18px 18px;
+    background:linear-gradient(0deg, rgba(6,8,15,.95), rgba(6,8,15,.5));
+    border-top:1px solid var(--line);
+    backdrop-filter:blur(6px);
+  }
+  .kpi{
+    border-radius:12px; padding:12px 16px; position:relative; overflow:hidden;
+    background:linear-gradient(180deg, rgba(17,26,46,.85), rgba(10,15,28,.6));
+    border:1px solid var(--line);
+  }
+  .kpi::after{
+    content:""; position:absolute; left:0; right:0; bottom:0; height:34px;
+    background:linear-gradient(180deg, transparent, rgba(255,255,255,.03));
+    pointer-events:none;
+  }
+  .kpi .k-label{font-size:10px; letter-spacing:.22em; color:var(--dim); font-weight:700}
+  .kpi .k-val{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:30px; margin-top:4px}
+  .kpi .k-unit{color:var(--dim); font-size:12px; font-weight:500; margin-left:4px; font-family:inherit; letter-spacing:.05em}
+  .kpi .k-delta{position:absolute; right:12px; top:10px; font-size:10px; letter-spacing:.1em; font-weight:700; padding:2px 6px; border-radius:20px}
+  .kpi .k-delta.up{color:var(--gr); background:rgba(108,255,154,.12)}
+  .kpi .k-delta.dn{color:var(--mg); background:rgba(255,77,201,.12)}
+  .kpi .k-sub{color:var(--mute); font-size:10px; margin-top:2px; letter-spacing:.05em}
+  .kpi .k-spark{position:absolute; left:14px; right:14px; bottom:10px; height:36px}
+
+  .kpi.book .k-val{color:var(--cy); text-shadow:0 0 14px rgba(63,240,255,.35)}
+  .kpi.rev .k-val{color:var(--gd); text-shadow:0 0 14px rgba(255,207,92,.35)}
+  .kpi.call .k-val{color:var(--gr); text-shadow:0 0 14px rgba(108,255,154,.35)}
+  .kpi.done .k-val{color:var(--mg); text-shadow:0 0 14px rgba(255,77,201,.35)}
+  .kpi.nps .k-val{color:var(--pu); text-shadow:0 0 14px rgba(160,107,255,.35)}
+
+  /* ============= TASKS VIEW ============= */
+  .view-tasks{grid-template-columns:1fr; padding:0}
+  .kanban{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:16px; height:100%; overflow:hidden}
+  .col{background:rgba(10,15,28,.5); border:1px solid var(--line); border-radius:12px; display:flex; flex-direction:column; min-height:0}
+  .col h3{padding:10px 14px; font-size:11px; letter-spacing:.2em; color:var(--dim); font-weight:700; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line)}
+  .col h3 .cnt{color:var(--cy); font-family:"JetBrains Mono",monospace; font-size:12px}
+  .col.q h3{color:var(--cy)} .col.q h3 .cnt{color:var(--cy)}
+  .col.p h3{color:var(--gd)} .col.p h3 .cnt{color:var(--gd)}
+  .col.r h3{color:var(--mg)} .col.p h3 .cnt{color:var(--mg)}
+  .col.d h3{color:var(--gr)} .col.d h3 .cnt{color:var(--gr)}
+  .col-body{padding:10px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1; min-height:0}
+  .col-body::-webkit-scrollbar{width:6px}
+  .col-body::-webkit-scrollbar-thumb{background:#243154; border-radius:3px}
+  .card{
+    background:linear-gradient(180deg, rgba(17,26,46,.9), rgba(10,15,28,.7));
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:12px;
+    position:relative; overflow:hidden;
+  }
+  .card::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent,var(--cy)); box-shadow:0 0 8px var(--accent,var(--cy))
+  }
+  .card .c-tag{font-size:9px; letter-spacing:.16em; color:var(--accent,var(--cy)); font-weight:700}
+  .card .c-title{margin-top:3px; font-size:12px; color:var(--text); line-height:1.4; font-weight:600}
+  .card .c-meta{margin-top:8px; display:flex; justify-content:space-between; align-items:center; color:var(--mute); font-size:10px; font-family:"JetBrains Mono",monospace}
+  .card .c-who{display:inline-flex; align-items:center; gap:6px}
+  .card .c-who .av{width:14px; height:14px; border-radius:50%; background:var(--accent,var(--cy)); box-shadow:0 0 8px var(--accent,var(--cy))}
+  .card.hoshino{--accent:var(--cy)}
+  .card.shiraishi{--accent:var(--mg)}
+  .card.kamiya{--accent:var(--gr)}
+  .card.kiryu{--accent:var(--gd)}
+
+  /* ============= AUTOCALL VIEW ============= */
+  .view-autocall{grid-template-columns:1fr 460px}
+  .autocall-main{display:flex; flex-direction:column; height:100%; min-height:0}
+  .autocall-metrics{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; padding:14px}
+  .am{
+    padding:10px 14px; border-radius:10px;
+    background:linear-gradient(180deg, rgba(17,26,46,.7), rgba(10,15,28,.5));
+    border:1px solid var(--line);
+  }
+  .am .lb{font-size:10px; letter-spacing:.22em; color:var(--dim); font-weight:700}
+  .am .vl{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:26px; margin-top:2px}
+  .am .un{color:var(--dim); font-size:11px; margin-left:4px}
+  .am.a1 .vl{color:var(--cy)}
+  .am.a2 .vl{color:var(--gr)}
+  .am.a3 .vl{color:var(--gd)}
+  .am.a4 .vl{color:var(--mg)}
+  .am.a5 .vl{color:var(--pu)}
+
+  .calltable{
+    flex:1; min-height:0; overflow-y:auto; padding:0 14px 14px 14px;
+  }
+  .calltable::-webkit-scrollbar{width:6px}
+  .calltable::-webkit-scrollbar-thumb{background:#243154; border-radius:3px}
+  table.ct{width:100%; border-collapse:collapse; font-size:12px}
+  table.ct th{
+    text-align:left; padding:8px 10px;
+    font-size:10px; letter-spacing:.18em; color:var(--dim); font-weight:700;
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; background:rgba(10,15,28,.95); z-index:1;
+  }
+  table.ct td{padding:10px 10px; border-bottom:1px solid #1a2540; color:var(--text)}
+  table.ct td.mono{font-family:"JetBrains Mono",monospace; color:var(--dim)}
+  table.ct td .st{padding:2px 8px; border-radius:20px; font-size:10px; letter-spacing:.1em; font-weight:700}
+  .st.ing{color:var(--gr); background:rgba(108,255,154,.14)}
+  .st.done{color:var(--cy); background:rgba(63,240,255,.14)}
+  .st.wait{color:var(--gd); background:rgba(255,207,92,.14)}
+  .st.no{color:var(--mute); background:rgba(140,150,180,.1)}
+
+  .autocall-side{display:flex; flex-direction:column; min-height:0}
+  .call-monitor{padding:14px}
+  .cm-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+  .cm-title{font-weight:700; color:var(--cy); letter-spacing:.06em; font-size:14px}
+  .cm-sub{color:var(--mute); font-size:11px; font-family:"JetBrains Mono",monospace}
+  .waveform{height:70px; position:relative; margin:8px 0 14px}
+  .waveform svg{width:100%; height:100%; display:block}
+  .wf-bar{fill:var(--cy)}
+  .transcript{max-height:220px; overflow-y:auto; padding:6px 4px; display:flex; flex-direction:column; gap:8px}
+  .transcript::-webkit-scrollbar{width:6px}
+  .transcript::-webkit-scrollbar-thumb{background:#243154; border-radius:3px}
+  .ts{padding:8px 10px; border-radius:9px; font-size:12px; line-height:1.5}
+  .ts.ai{background:rgba(63,240,255,.08); border:1px solid rgba(63,240,255,.24)}
+  .ts.hu{background:rgba(255,255,255,.03); border:1px solid var(--line)}
+  .ts .who{font-size:10px; letter-spacing:.14em; font-weight:700; margin-bottom:2px}
+  .ts.ai .who{color:var(--cy)}
+  .ts.hu .who{color:var(--dim)}
+  .analysis{padding:12px 14px; border-top:1px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .an-cell{background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:8px; padding:8px 10px}
+  .an-cell .l{font-size:10px; letter-spacing:.16em; color:var(--dim); font-weight:700}
+  .an-cell .v{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:16px; margin-top:2px}
+  .an-cell.k .v{color:var(--gd)}
+  .an-cell.m .v{color:var(--mg)}
+  .an-cell.g .v{color:var(--gr)}
+  .an-cell.c .v{color:var(--cy)}
+
+  /* ============= KPI VIEW ============= */
+  .view-kpi{grid-template-columns:1fr; padding:0}
+  .kpi-grid{display:grid; grid-template-columns:2fr 1fr; grid-template-rows:1fr 1fr; gap:12px; padding:14px; height:100%; min-height:0}
+  .kpi-card{background:linear-gradient(180deg, rgba(17,26,46,.7), rgba(10,15,28,.55)); border:1px solid var(--line); border-radius:12px; display:flex; flex-direction:column; min-height:0}
+  .kc-head{padding:12px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:700}
+  .kc-body{flex:1; min-height:0; padding:12px; position:relative}
+  .bignum{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:52px}
+  .kc.rev .bignum{color:var(--gd); text-shadow:0 0 20px rgba(255,207,92,.35)}
+  .kc.book .bignum{color:var(--cy); text-shadow:0 0 20px rgba(63,240,255,.35)}
+  .kc.call .bignum{color:var(--gr); text-shadow:0 0 20px rgba(108,255,154,.35)}
+  .kc.done .bignum{color:var(--mg); text-shadow:0 0 20px rgba(255,77,201,.35)}
+
+  .chart{width:100%; height:100%}
+  .breakdown{padding:0 16px 16px}
+  .breakdown .row{display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #1a2540; font-size:12px}
+  .breakdown .row:last-child{border-bottom:0}
+  .breakdown .bar{position:relative; width:150px; height:6px; background:rgba(255,255,255,.06); border-radius:20px; overflow:hidden}
+  .breakdown .bar .fill{position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg, var(--cy), var(--pu)); box-shadow:0 0 8px rgba(63,240,255,.5)}
+
+  /* ============= SCANLINES ============= */
+  .crt{
+    position:fixed; inset:0; pointer-events:none; z-index:100; opacity:.06;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(255,255,255,.2) 2px 3px);
+    mix-blend-mode:overlay;
+  }
+  .vignette{
+    position:fixed; inset:0; pointer-events:none; z-index:99;
+    box-shadow:inset 0 0 200px rgba(0,0,0,.75);
+  }
+
+  @media (max-width:1180px){
+    .kpi-bar{grid-template-columns:repeat(3,1fr); height:auto; padding-bottom:14px}
+    .stage{inset:64px 0 200px 0}
+  }
+</style>
+</head>
+<body>
+
+<style>
+  .version-banner{position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:150; display:flex; align-items:center; gap:8px; padding:6px 14px; background:rgba(10,15,28,.85); border:1px solid rgba(63,240,255,.35); border-radius:22px; backdrop-filter:blur(10px); font-size:11px; letter-spacing:.06em; box-shadow:0 4px 20px rgba(0,0,0,.5), 0 0 24px rgba(63,240,255,.12)}
+  .version-banner .cur{color:var(--gd); font-weight:800; text-shadow:0 0 8px rgba(255,207,92,.5)}
+  .version-banner .vw{color:var(--dim); text-decoration:none; padding:3px 10px; border-radius:12px; border:1px solid transparent; transition:.2s; font-weight:600}
+  .version-banner .vw:hover{color:var(--cy); border-color:rgba(63,240,255,.5); background:rgba(63,240,255,.08)}
+  .version-banner .vw.cur{color:var(--gd); border-color:rgba(255,207,92,.6); background:rgba(255,207,92,.1)}
+</style>
+<div class="version-banner">
+  <span class="cur">V2</span>
+  <span style="color:var(--dim); margin:0 4px">｜2周目</span>
+  <span style="color:var(--text); font-weight:600">人型SVG＋夜景＋9会話</span>
+  <span style="color:var(--dim); margin:0 10px">｜進化を切替：</span>
+  <a class="vw" href="20260829_ai_travel_company_demo_v1.html">V1</a>
+  <a class="vw cur" href="20260829_ai_travel_company_demo_v2.html">V2</a>
+  <a class="vw" href="20260829_ai_travel_company_demo_v3.html">V3</a>
+  <a class="vw" href="20260829_ai_travel_company_demo.html">V4・フレーム破壊</a>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo"></div>
+    <div class="title">AI ツバサ・トラベル <small>LIVE OPS DASHBOARD</small></div>
+    <div class="status"><span class="dot"></span>SYSTEM ONLINE</div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="office">全社ビュー</button>
+    <button class="tab" data-view="tasks">タスクボード</button>
+    <button class="tab" data-view="autocall">AUTOCALL</button>
+    <button class="tab" data-view="kpi">KPI詳細</button>
+  </nav>
+
+  <div class="header-right">
+    <div class="weather">神戸 <b>28°C</b> 晴／欠航なし</div>
+    <div class="fps" id="fps">60 FPS</div>
+    <div class="clock">2026.08.29 <span class="val" id="clock">00:00:00</span></div>
+  </div>
+</header>
+
+<!-- ============ 全社ビュー ============ -->
+<div class="stage">
+  <div class="view view-office active">
+    <section class="panel office-panel">
+      <div class="office-scene">
+
+        <!-- SKY / BACKGROUND -->
+        <div class="sky">
+          <div class="stars"></div>
+          <div class="aurora"></div>
+          <div class="moon"></div>
+          <div class="cityscape">
+            <svg viewBox="0 0 1600 400" preserveAspectRatio="xMidYMax slice">
+              <defs>
+                <linearGradient id="cityGrad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="#182240" stop-opacity=".9"/>
+                  <stop offset="1" stop-color="#080c1a" stop-opacity="1"/>
+                </linearGradient>
+                <radialGradient id="glow" cx="50%" cy="80%" r="50%">
+                  <stop offset="0%" stop-color="#3ff0ff" stop-opacity=".18"/>
+                  <stop offset="100%" stop-color="#3ff0ff" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="1600" height="400" fill="url(#glow)"/>
+              <!-- Kobe Port Tower silhouette -->
+              <g fill="url(#cityGrad)" stroke="rgba(63,240,255,.15)" stroke-width="1">
+                <polygon points="220,400 220,220 236,220 236,150 260,110 284,150 284,220 300,220 300,400"/>
+                <polygon points="252,110 252,80 268,80 268,110"/>
+              </g>
+              <!-- Distant mountains -->
+              <path d="M 0 320 L 80 260 L 160 300 L 260 240 L 360 290 L 480 220 L 600 280 L 720 250 L 860 300 L 1000 240 L 1140 290 L 1280 250 L 1400 300 L 1520 260 L 1600 300 L 1600 400 L 0 400 Z" fill="#0a1428" opacity=".7"/>
+              <!-- Building strip -->
+              <g fill="url(#cityGrad)">
+                <rect x="0"    y="260" width="80"  height="140"/>
+                <rect x="90"   y="240" width="60"  height="160"/>
+                <rect x="160"  y="220" width="90"  height="180"/>
+                <rect x="330"  y="230" width="70"  height="170"/>
+                <rect x="410"  y="200" width="100" height="200"/>
+                <rect x="520"  y="240" width="80"  height="160"/>
+                <rect x="610"  y="180" width="120" height="220"/>
+                <rect x="740"  y="220" width="70"  height="180"/>
+                <rect x="820"  y="200" width="90"  height="200"/>
+                <rect x="920"  y="240" width="80"  height="160"/>
+                <rect x="1010" y="210" width="110" height="190"/>
+                <rect x="1130" y="230" width="70"  height="170"/>
+                <rect x="1210" y="200" width="90"  height="200"/>
+                <rect x="1310" y="220" width="80"  height="180"/>
+                <rect x="1400" y="180" width="120" height="220"/>
+                <rect x="1530" y="240" width="70"  height="160"/>
+              </g>
+              <!-- Building windows: rows of small lights -->
+              <g fill="#ffd48a" opacity=".85">
+                <rect x="10"   y="280" width="4" height="4"/><rect x="24" y="280" width="4" height="4"/><rect x="38" y="280" width="4" height="4"/><rect x="52" y="280" width="4" height="4"/><rect x="66" y="280" width="4" height="4"/>
+                <rect x="10"   y="294" width="4" height="4"/><rect x="24" y="294" width="4" height="4"/><rect x="52" y="294" width="4" height="4"/><rect x="66" y="294" width="4" height="4"/>
+                <rect x="10"   y="308" width="4" height="4"/><rect x="38" y="308" width="4" height="4"/><rect x="52" y="308" width="4" height="4"/>
+                <rect x="100"  y="260" width="4" height="4"/><rect x="114" y="260" width="4" height="4"/><rect x="128" y="260" width="4" height="4"/><rect x="142" y="260" width="4" height="4"/>
+                <rect x="100"  y="274" width="4" height="4"/><rect x="128" y="274" width="4" height="4"/><rect x="142" y="274" width="4" height="4"/>
+                <rect x="100"  y="288" width="4" height="4"/><rect x="114" y="288" width="4" height="4"/><rect x="142" y="288" width="4" height="4"/>
+                <rect x="170"  y="240" width="4" height="4"/><rect x="184" y="240" width="4" height="4"/><rect x="198" y="240" width="4" height="4"/><rect x="212" y="240" width="4" height="4"/><rect x="226" y="240" width="4" height="4"/>
+                <rect x="170"  y="254" width="4" height="4"/><rect x="212" y="254" width="4" height="4"/><rect x="226" y="254" width="4" height="4"/>
+                <rect x="170"  y="268" width="4" height="4"/><rect x="184" y="268" width="4" height="4"/>
+                <rect x="420"  y="220" width="4" height="4"/><rect x="434" y="220" width="4" height="4"/><rect x="448" y="220" width="4" height="4"/><rect x="462" y="220" width="4" height="4"/><rect x="476" y="220" width="4" height="4"/><rect x="490" y="220" width="4" height="4"/>
+                <rect x="420"  y="236" width="4" height="4"/><rect x="448" y="236" width="4" height="4"/><rect x="476" y="236" width="4" height="4"/>
+                <rect x="420"  y="252" width="4" height="4"/><rect x="434" y="252" width="4" height="4"/><rect x="462" y="252" width="4" height="4"/><rect x="476" y="252" width="4" height="4"/><rect x="490" y="252" width="4" height="4"/>
+                <rect x="620"  y="200" width="4" height="4"/><rect x="634" y="200" width="4" height="4"/><rect x="648" y="200" width="4" height="4"/><rect x="662" y="200" width="4" height="4"/><rect x="676" y="200" width="4" height="4"/><rect x="690" y="200" width="4" height="4"/><rect x="704" y="200" width="4" height="4"/><rect x="718" y="200" width="4" height="4"/>
+                <rect x="620"  y="216" width="4" height="4"/><rect x="648" y="216" width="4" height="4"/><rect x="676" y="216" width="4" height="4"/><rect x="704" y="216" width="4" height="4"/>
+                <rect x="620"  y="232" width="4" height="4"/><rect x="634" y="232" width="4" height="4"/><rect x="662" y="232" width="4" height="4"/><rect x="690" y="232" width="4" height="4"/><rect x="704" y="232" width="4" height="4"/>
+                <rect x="620"  y="248" width="4" height="4"/><rect x="634" y="248" width="4" height="4"/><rect x="662" y="248" width="4" height="4"/><rect x="676" y="248" width="4" height="4"/><rect x="690" y="248" width="4" height="4"/>
+                <rect x="830"  y="220" width="4" height="4"/><rect x="844" y="220" width="4" height="4"/><rect x="858" y="220" width="4" height="4"/><rect x="872" y="220" width="4" height="4"/><rect x="886" y="220" width="4" height="4"/>
+                <rect x="830"  y="236" width="4" height="4"/><rect x="858" y="236" width="4" height="4"/><rect x="886" y="236" width="4" height="4"/>
+                <rect x="830"  y="252" width="4" height="4"/><rect x="844" y="252" width="4" height="4"/><rect x="872" y="252" width="4" height="4"/>
+                <rect x="1020" y="230" width="4" height="4"/><rect x="1034" y="230" width="4" height="4"/><rect x="1048" y="230" width="4" height="4"/><rect x="1062" y="230" width="4" height="4"/><rect x="1076" y="230" width="4" height="4"/><rect x="1090" y="230" width="4" height="4"/><rect x="1104" y="230" width="4" height="4"/>
+                <rect x="1020" y="246" width="4" height="4"/><rect x="1048" y="246" width="4" height="4"/><rect x="1076" y="246" width="4" height="4"/><rect x="1104" y="246" width="4" height="4"/>
+                <rect x="1020" y="262" width="4" height="4"/><rect x="1034" y="262" width="4" height="4"/><rect x="1062" y="262" width="4" height="4"/><rect x="1090" y="262" width="4" height="4"/>
+                <rect x="1220" y="220" width="4" height="4"/><rect x="1234" y="220" width="4" height="4"/><rect x="1248" y="220" width="4" height="4"/><rect x="1262" y="220" width="4" height="4"/><rect x="1276" y="220" width="4" height="4"/>
+                <rect x="1220" y="236" width="4" height="4"/><rect x="1248" y="236" width="4" height="4"/><rect x="1276" y="236" width="4" height="4"/>
+                <rect x="1220" y="252" width="4" height="4"/><rect x="1234" y="252" width="4" height="4"/><rect x="1262" y="252" width="4" height="4"/>
+                <rect x="1410" y="200" width="4" height="4"/><rect x="1424" y="200" width="4" height="4"/><rect x="1438" y="200" width="4" height="4"/><rect x="1452" y="200" width="4" height="4"/><rect x="1466" y="200" width="4" height="4"/><rect x="1480" y="200" width="4" height="4"/><rect x="1494" y="200" width="4" height="4"/><rect x="1508" y="200" width="4" height="4"/>
+                <rect x="1410" y="216" width="4" height="4"/><rect x="1438" y="216" width="4" height="4"/><rect x="1466" y="216" width="4" height="4"/><rect x="1494" y="216" width="4" height="4"/>
+                <rect x="1410" y="232" width="4" height="4"/><rect x="1424" y="232" width="4" height="4"/><rect x="1452" y="232" width="4" height="4"/><rect x="1480" y="232" width="4" height="4"/><rect x="1508" y="232" width="4" height="4"/>
+                <rect x="1410" y="248" width="4" height="4"/><rect x="1424" y="248" width="4" height="4"/><rect x="1466" y="248" width="4" height="4"/><rect x="1480" y="248" width="4" height="4"/><rect x="1494" y="248" width="4" height="4"/>
+              </g>
+              <!-- Antenna lights (blinking via CSS on parent — use fixed red dots here) -->
+              <g fill="#ff6a8a">
+                <circle cx="268" cy="78" r="2"/>
+                <circle cx="465" cy="198" r="2"/>
+                <circle cx="670" cy="178" r="2"/>
+                <circle cx="1065" cy="208" r="2"/>
+                <circle cx="1465" cy="178" r="2"/>
+              </g>
+              <!-- Ferris wheel (Kobe Harbor Land) -->
+              <g stroke="rgba(63,240,255,.55)" stroke-width="1" fill="none" transform="translate(1160 290)">
+                <circle r="42"/>
+                <line x1="-42" y1="0" x2="42" y2="0"/>
+                <line x1="0" y1="-42" x2="0" y2="42"/>
+                <line x1="-30" y1="-30" x2="30" y2="30"/>
+                <line x1="-30" y1="30" x2="30" y2="-30"/>
+                <circle r="4" fill="#3ff0ff"/>
+                <line x1="0" y1="42" x2="0" y2="80" stroke-width="2"/>
+              </g>
+              <g fill="#3ff0ff" transform="translate(1160 290)">
+                <circle cx="42" cy="0" r="2"/><circle cx="-42" cy="0" r="2"/>
+                <circle cx="0" cy="-42" r="2"/><circle cx="0" cy="42" r="2"/>
+                <circle cx="30" cy="30" r="2"/><circle cx="-30" cy="-30" r="2"/>
+                <circle cx="30" cy="-30" r="2"/><circle cx="-30" cy="30" r="2"/>
+              </g>
+              <!-- Bay water reflection line -->
+              <line x1="0" y1="360" x2="1600" y2="360" stroke="rgba(63,240,255,.15)" stroke-width="1"/>
+            </svg>
+          </div>
+          <div class="airplane"></div>
+          <div class="drone d1"></div>
+          <div class="drone d2"></div>
+          <div class="drone d3"></div>
+        </div>
+
+        <div class="scene-hud">
+          <div class="row" style="color:var(--gd)"><span class="sw" style="background:var(--gd)"></span><span class="name" style="color:var(--text)">桐生 光</span>／代表取締役</div>
+          <div class="row" style="color:var(--cy)"><span class="sw" style="background:var(--cy)"></span><span class="name" style="color:var(--text)">星野 蓮</span>／営業AI</div>
+          <div class="row" style="color:var(--mg)"><span class="sw" style="background:var(--mg)"></span><span class="name" style="color:var(--text)">白石 麻衣</span>／経理AI</div>
+          <div class="row" style="color:var(--gr)"><span class="sw" style="background:var(--gr)"></span><span class="name" style="color:var(--text)">神谷 湊</span>／指示だしAI (PM)</div>
+        </div>
+
+        <div class="scene-hud-r">
+          <div>NODE <b>tsubasa-01</b>／KOBE-JP-EAST</div>
+          <div>API latency <span class="lat" id="lat">42 ms</span></div>
+          <div>Tasks in-flight <b id="inflight">7</b></div>
+          <div>Autonomy level <b>3.2</b></div>
+        </div>
+
+        <div class="floor">
+          <div class="grid-plate"></div>
+
+          <!-- ================ 社長室 ================ -->
+          <div class="room r-ceo">
+            <div class="rlabel">CEO OFFICE ／ 社長室</div>
+            <div class="rmeta">戦略・意思決定</div>
+            <div class="furn window" style="left:30px; top:14px; width:120px; height:16px"></div>
+            <div class="furn window" style="left:170px; top:14px; width:80px; height:16px"></div>
+            <div class="furn poster" style="left:280px; top:14px; width:56px; height:36px"></div>
+            <div class="furn clock" style="left:360px; top:20px; width:24px; height:24px"></div>
+
+            <div class="furn desk" style="left:52px; top:80px; width:210px; height:52px"></div>
+            <div class="furn screen gd" style="left:70px; top:88px; width:70px; height:36px"></div>
+            <div class="furn screen gd" style="left:150px; top:88px; width:70px; height:36px"></div>
+            <div class="furn mug" style="left:238px; top:100px"></div>
+            <div class="furn paper" style="left:230px; top:110px; width:20px; height:16px"></div>
+            <div class="furn chair" style="left:130px; top:150px; width:50px; height:40px"></div>
+
+            <div class="furn rug" style="left:80px; top:190px; width:220px; height:70px"></div>
+            <div class="furn hologram" style="left:290px; top:120px; width:60px; height:60px"></div>
+
+            <div class="furn bookshelf" style="left:30px; top:210px; width:60px; height:56px"></div>
+            <div class="furn planter" style="left:340px; top:210px; width:26px; height:26px"></div>
+            <div class="furn planter" style="left:340px; top:36px; width:26px; height:26px"></div>
+          </div>
+
+          <!-- ================ 営業フロア ================ -->
+          <div class="room r-sales">
+            <div class="rlabel">SALES FLOOR ／ 営業フロア</div>
+            <div class="rmeta">見積・提案・受注</div>
+            <div class="furn window" style="left:30px; top:14px; width:100px; height:16px"></div>
+            <div class="furn window" style="left:150px; top:14px; width:100px; height:16px"></div>
+            <div class="furn window" style="left:270px; top:14px; width:100px; height:16px"></div>
+            <div class="furn poster hokkaido" style="left:390px; top:14px; width:56px; height:36px"></div>
+            <div class="furn clock" style="left:410px; top:56px; width:22px; height:22px"></div>
+
+            <div class="furn desk" style="left:40px; top:80px; width:160px; height:44px"></div>
+            <div class="furn screen" style="left:52px; top:86px; width:56px; height:30px"></div>
+            <div class="furn screen" style="left:130px; top:86px; width:56px; height:30px"></div>
+            <div class="furn paper" style="left:180px; top:108px; width:14px; height:12px"></div>
+
+            <div class="furn desk" style="left:250px; top:80px; width:160px; height:44px"></div>
+            <div class="furn screen" style="left:262px; top:86px; width:56px; height:30px"></div>
+            <div class="furn screen" style="left:340px; top:86px; width:56px; height:30px"></div>
+            <div class="furn mug" style="left:400px; top:100px"></div>
+
+            <div class="furn chair" style="left:100px; top:140px; width:40px; height:32px"></div>
+            <div class="furn chair" style="left:300px; top:140px; width:40px; height:32px"></div>
+
+            <div class="furn rug" style="left:70px; top:180px; width:360px; height:56px"></div>
+            <div class="furn serverrack" style="left:20px; top:220px; width:120px; height:44px"></div>
+            <div class="furn hologram" style="left:200px; top:180px; width:70px; height:70px"></div>
+            <div class="furn planter" style="left:430px; top:210px; width:22px; height:22px"></div>
+            <div class="furn trash" style="left:436px; top:120px; width:16px; height:20px"></div>
+          </div>
+
+          <!-- ================ 経理室 ================ -->
+          <div class="room r-acct">
+            <div class="rlabel">FINANCE ／ 経理室</div>
+            <div class="rmeta">入金・請求・仕訳</div>
+            <div class="furn window" style="left:30px; top:14px; width:100px; height:16px"></div>
+            <div class="furn window" style="left:150px; top:14px; width:100px; height:16px"></div>
+            <div class="furn clock" style="left:280px; top:16px; width:22px; height:22px"></div>
+            <div class="furn poster kyoto" style="left:315px; top:14px; width:56px; height:36px"></div>
+
+            <div class="furn desk" style="left:40px; top:80px; width:200px; height:46px"></div>
+            <div class="furn screen mg" style="left:56px; top:86px; width:70px; height:32px"></div>
+            <div class="furn screen mg" style="left:146px; top:86px; width:70px; height:32px"></div>
+            <div class="furn paper" style="left:220px; top:110px; width:16px; height:14px"></div>
+            <div class="furn mug" style="left:230px; top:96px"></div>
+            <div class="furn chair" style="left:120px; top:140px; width:44px; height:36px"></div>
+            <div class="furn rug" style="left:60px; top:180px; width:220px; height:60px"></div>
+
+            <div class="furn bookshelf" style="left:30px; top:250px; width:60px; height:36px"></div>
+            <div class="furn serverrack" style="left:260px; top:180px; width:80px; height:70px"></div>
+            <div class="furn hologram" style="left:100px; top:190px; width:50px; height:50px"></div>
+            <div class="furn planter" style="left:20px; top:200px; width:20px; height:20px"></div>
+          </div>
+
+          <!-- ================ 会議室 ================ -->
+          <div class="room r-meet">
+            <div class="rlabel">MEETING ／ 会議室</div>
+            <div class="rmeta">朝会・戦略共有</div>
+            <div class="furn window" style="left:30px; top:14px; width:120px; height:16px"></div>
+            <div class="furn window" style="left:170px; top:14px; width:120px; height:16px"></div>
+            <div class="furn window" style="left:310px; top:14px; width:120px; height:16px"></div>
+            <div class="furn whiteboard" style="left:440px; top:14px; width:60px; height:80px"></div>
+
+            <div class="furn table" style="left:100px; top:100px; width:280px; height:110px"></div>
+            <div class="furn paper" style="left:160px; top:130px; width:20px; height:14px"></div>
+            <div class="furn paper" style="left:220px; top:150px; width:20px; height:14px"></div>
+            <div class="furn paper" style="left:290px; top:130px; width:20px; height:14px"></div>
+            <div class="furn mug" style="left:170px; top:170px"></div>
+            <div class="furn mug" style="left:270px; top:170px"></div>
+            <div class="furn mug" style="left:330px; top:130px"></div>
+            <div class="furn hologram" style="left:200px; top:120px; width:80px; height:80px"></div>
+
+            <div class="furn chair" style="left:130px; top:70px; width:50px; height:24px"></div>
+            <div class="furn chair" style="left:210px; top:70px; width:50px; height:24px"></div>
+            <div class="furn chair" style="left:290px; top:70px; width:50px; height:24px"></div>
+            <div class="furn chair" style="left:130px; top:220px; width:50px; height:24px"></div>
+            <div class="furn chair" style="left:210px; top:220px; width:50px; height:24px"></div>
+            <div class="furn chair" style="left:290px; top:220px; width:50px; height:24px"></div>
+            <div class="furn screen gr" style="left:40px; top:120px; width:44px; height:60px"></div>
+
+            <div class="furn coffee" style="left:400px; top:220px; width:16px; height:22px"></div>
+            <div class="furn coffee" style="left:420px; top:224px; width:14px; height:20px"></div>
+            <div class="furn bookshelf" style="left:400px; top:260px; width:80px; height:30px"></div>
+            <div class="furn planter" style="left:460px; top:110px; width:24px; height:24px"></div>
+            <div class="furn planter" style="left:430px; top:36px; width:24px; height:24px"></div>
+          </div>
+
+          <!-- ================ CHARACTERS ================ -->
+          <!-- 桐生 光 (社長) — dark suit, gold pocket square -->
+          <div class="char c-kiryu" id="ch-kiryu" style="left:700px; top:150px">
+            <div class="shadow"></div>
+            <div class="halo"></div>
+            <div class="man">
+              <svg viewBox="-26 -96 52 96">
+                <!-- legs -->
+                <rect class="leg leg-l" x="-8" y="-16" width="6" height="18" fill="#141a2e" rx="2"/>
+                <rect class="leg leg-r" x="2"  y="-16" width="6" height="18" fill="#141a2e" rx="2"/>
+                <!-- shoes -->
+                <ellipse class="leg-l" cx="-5" cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <ellipse class="leg-r" cx="5"  cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <!-- torso (suit) -->
+                <path d="M -14 -50 Q -14 -60 0 -60 Q 14 -60 14 -50 L 12 -16 L -12 -16 Z" fill="#1e2645"/>
+                <!-- shirt V -->
+                <path d="M -6 -60 L 0 -50 L 6 -60 L 0 -46 Z" fill="#f2f5ff"/>
+                <!-- gold tie -->
+                <polygon points="-2,-52 2,-52 3,-38 -3,-38" fill="#ffcf5c"/>
+                <!-- lapels -->
+                <path d="M -13 -55 L -6 -58 L -6 -46 Z" fill="#141a2e"/>
+                <path d="M 13 -55 L 6 -58 L 6 -46 Z" fill="#141a2e"/>
+                <!-- pocket square -->
+                <rect x="4" y="-42" width="5" height="4" fill="#ffcf5c"/>
+                <!-- arms -->
+                <rect class="arm arm-l" x="-18" y="-56" width="5" height="26" rx="2" fill="#1e2645"/>
+                <rect class="arm arm-r" x="13"  y="-56" width="5" height="26" rx="2" fill="#1e2645"/>
+                <!-- hands -->
+                <circle cx="-16" cy="-30" r="3" fill="#f5d7b2"/>
+                <circle cx="15"  cy="-30" r="3" fill="#f5d7b2"/>
+                <!-- neck -->
+                <rect x="-3" y="-64" width="6" height="6" fill="#f5d7b2"/>
+                <!-- head -->
+                <ellipse cx="0" cy="-72" rx="10" ry="11" fill="#f5d7b2"/>
+                <!-- ear -->
+                <circle cx="-10" cy="-72" r="1.6" fill="#e6be95"/>
+                <circle cx="10"  cy="-72" r="1.6" fill="#e6be95"/>
+                <!-- hair (business cut, slight side) -->
+                <path d="M -10 -80 Q -10 -84 -5 -84 L 5 -84 Q 10 -84 10 -80 L 10 -74 Q 8 -76 4 -76 L -2 -74 Q -6 -76 -10 -74 Z" fill="#1b1108"/>
+                <!-- glasses -->
+                <rect x="-8" y="-73" width="6" height="4" rx="2" fill="none" stroke="#1b1108" stroke-width=".8"/>
+                <rect x="2"  y="-73" width="6" height="4" rx="2" fill="none" stroke="#1b1108" stroke-width=".8"/>
+                <line x1="-2" y1="-72" x2="2" y2="-72" stroke="#1b1108" stroke-width=".6"/>
+                <!-- eyes (behind glasses hint) -->
+                <circle cx="-5" cy="-71" r=".8" fill="#0a0e1a"/>
+                <circle cx="5"  cy="-71" r=".8" fill="#0a0e1a"/>
+                <!-- mouth -->
+                <path d="M -2 -66 Q 0 -65 2 -66" stroke="#4a2a1a" stroke-width=".8" fill="none"/>
+              </svg>
+            </div>
+            <div class="floortag">桐生 光</div>
+            <div class="speech" id="sp-kiryu"></div>
+          </div>
+
+          <!-- 星野 蓮 (営業AI) — cyan blazer, navy hair -->
+          <div class="char c-hoshino" id="ch-hoshino" style="left:180px; top:150px">
+            <div class="shadow"></div>
+            <div class="halo"></div>
+            <div class="man">
+              <svg viewBox="-26 -96 52 96">
+                <rect class="leg leg-l" x="-8" y="-16" width="6" height="18" fill="#1a2540" rx="2"/>
+                <rect class="leg leg-r" x="2"  y="-16" width="6" height="18" fill="#1a2540" rx="2"/>
+                <ellipse class="leg-l" cx="-5" cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <ellipse class="leg-r" cx="5"  cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <!-- blazer -->
+                <path d="M -14 -50 Q -14 -60 0 -60 Q 14 -60 14 -50 L 12 -16 L -12 -16 Z" fill="#0e4a68"/>
+                <!-- shirt -->
+                <path d="M -6 -60 L 0 -48 L 6 -60 L 0 -44 Z" fill="#e6f6ff"/>
+                <!-- cyan tie -->
+                <polygon points="-2,-52 2,-52 3,-38 -3,-38" fill="#3ff0ff"/>
+                <path d="M -13 -55 L -6 -58 L -6 -46 Z" fill="#0a2c40"/>
+                <path d="M 13 -55 L 6 -58 L 6 -46 Z" fill="#0a2c40"/>
+                <!-- id badge -->
+                <rect x="4" y="-40" width="5" height="7" fill="#3ff0ff"/>
+                <line x1="6" y1="-42" x2="6" y2="-40" stroke="#e6f6ff" stroke-width="1"/>
+                <!-- arms -->
+                <rect class="arm arm-l" x="-18" y="-56" width="5" height="26" rx="2" fill="#0e4a68"/>
+                <rect class="arm arm-r" x="13"  y="-56" width="5" height="26" rx="2" fill="#0e4a68"/>
+                <!-- hands + headset device -->
+                <circle cx="-16" cy="-30" r="3" fill="#f5d7b2"/>
+                <circle cx="15"  cy="-30" r="3" fill="#f5d7b2"/>
+                <!-- neck -->
+                <rect x="-3" y="-64" width="6" height="6" fill="#f5d7b2"/>
+                <!-- head -->
+                <ellipse cx="0" cy="-72" rx="10" ry="11" fill="#f5d7b2"/>
+                <circle cx="-10" cy="-72" r="1.6" fill="#e6be95"/>
+                <circle cx="10"  cy="-72" r="1.6" fill="#e6be95"/>
+                <!-- hair — energetic swept -->
+                <path d="M -11 -80 Q -12 -86 -4 -86 Q 4 -86 8 -84 Q 12 -82 11 -78 Q 8 -80 4 -78 L -2 -74 Q -8 -76 -11 -78 Z" fill="#0f2c5a"/>
+                <path d="M 4 -84 Q 10 -80 12 -74" stroke="#0f2c5a" stroke-width="1.8" fill="none"/>
+                <!-- headset -->
+                <path d="M -11 -74 Q -12 -80 -8 -82" stroke="#3ff0ff" stroke-width="1.4" fill="none"/>
+                <circle cx="-11" cy="-74" r="1.6" fill="#3ff0ff"/>
+                <!-- mic -->
+                <path d="M -10 -73 Q -6 -70 -2 -68" stroke="#3ff0ff" stroke-width=".8" fill="none"/>
+                <circle cx="-2" cy="-68" r=".7" fill="#3ff0ff"/>
+                <!-- eyes -->
+                <circle cx="-5" cy="-71" r="1.1" fill="#0a0e1a"/>
+                <circle cx="5"  cy="-71" r="1.1" fill="#0a0e1a"/>
+                <circle cx="-4.6" cy="-71.4" r=".3" fill="#fff"/>
+                <circle cx="5.4"  cy="-71.4" r=".3" fill="#fff"/>
+                <!-- smile -->
+                <path d="M -3 -66 Q 0 -63 3 -66" stroke="#4a2a1a" stroke-width=".8" fill="none"/>
+              </svg>
+            </div>
+            <div class="floortag">星野 蓮</div>
+            <div class="speech" id="sp-hoshino"></div>
+          </div>
+
+          <!-- 白石 麻衣 (経理AI) — magenta cardigan, long hair -->
+          <div class="char c-shiraishi" id="ch-shiraishi" style="left:190px; top:450px">
+            <div class="shadow"></div>
+            <div class="halo"></div>
+            <div class="man">
+              <svg viewBox="-26 -96 52 96">
+                <rect class="leg leg-l" x="-8" y="-16" width="6" height="18" fill="#3a1830" rx="2"/>
+                <rect class="leg leg-r" x="2"  y="-16" width="6" height="18" fill="#3a1830" rx="2"/>
+                <ellipse class="leg-l" cx="-5" cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <ellipse class="leg-r" cx="5"  cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <!-- cardigan (open) -->
+                <path d="M -14 -50 Q -14 -60 0 -60 Q 14 -60 14 -50 L 12 -16 L -12 -16 Z" fill="#7a1f4a"/>
+                <!-- blouse -->
+                <path d="M -8 -58 L 0 -50 L 8 -58 L 6 -16 L -6 -16 Z" fill="#f7dfef"/>
+                <!-- cardigan open lines -->
+                <line x1="-8" y1="-56" x2="-10" y2="-16" stroke="#4a1030" stroke-width="1"/>
+                <line x1="8"  y1="-56" x2="10"  y2="-16" stroke="#4a1030" stroke-width="1"/>
+                <!-- pearl accent -->
+                <circle cx="0" cy="-52" r="1.4" fill="#fff2f8"/>
+                <!-- id badge -->
+                <rect x="4" y="-40" width="5" height="7" fill="#ff4dc9"/>
+                <!-- arms -->
+                <rect class="arm arm-l" x="-18" y="-56" width="5" height="26" rx="2" fill="#7a1f4a"/>
+                <rect class="arm arm-r" x="13"  y="-56" width="5" height="26" rx="2" fill="#7a1f4a"/>
+                <!-- hands -->
+                <circle cx="-16" cy="-30" r="3" fill="#f5d7b2"/>
+                <circle cx="15"  cy="-30" r="3" fill="#f5d7b2"/>
+                <!-- neck -->
+                <rect x="-3" y="-64" width="6" height="6" fill="#f5d7b2"/>
+                <!-- head -->
+                <ellipse cx="0" cy="-72" rx="10" ry="11" fill="#f5d7b2"/>
+                <!-- long hair back -->
+                <path d="M -12 -70 Q -14 -50 -10 -34 L -14 -34 Q -18 -50 -14 -80 Q -12 -84 -6 -84 L 6 -84 Q 12 -84 14 -80 Q 18 -50 14 -34 L 10 -34 Q 14 -50 12 -70" fill="#4a1030"/>
+                <!-- hair front (bangs) -->
+                <path d="M -10 -80 Q -8 -84 0 -84 Q 8 -84 10 -80 L 8 -75 Q 4 -78 0 -76 Q -4 -78 -8 -75 Z" fill="#4a1030"/>
+                <!-- eyes -->
+                <circle cx="-5" cy="-71" r="1.1" fill="#0a0e1a"/>
+                <circle cx="5"  cy="-71" r="1.1" fill="#0a0e1a"/>
+                <circle cx="-4.6" cy="-71.4" r=".3" fill="#fff"/>
+                <circle cx="5.4"  cy="-71.4" r=".3" fill="#fff"/>
+                <!-- lips -->
+                <path d="M -2 -66 Q 0 -65 2 -66" stroke="#a63a6a" stroke-width=".9" fill="none"/>
+                <!-- earring -->
+                <circle cx="-10" cy="-70" r=".9" fill="#ff4dc9"/>
+                <circle cx="10"  cy="-70" r=".9" fill="#ff4dc9"/>
+              </svg>
+            </div>
+            <div class="floortag">白石 麻衣</div>
+            <div class="speech" id="sp-shiraishi"></div>
+          </div>
+
+          <!-- 神谷 湊 (指示だしAI/PM) — casual green hoodie, brown hair -->
+          <div class="char c-kamiya" id="ch-kamiya" style="left:600px; top:450px">
+            <div class="shadow"></div>
+            <div class="halo"></div>
+            <div class="man">
+              <svg viewBox="-26 -96 52 96">
+                <rect class="leg leg-l" x="-8" y="-16" width="6" height="18" fill="#242a3a" rx="2"/>
+                <rect class="leg leg-r" x="2"  y="-16" width="6" height="18" fill="#242a3a" rx="2"/>
+                <ellipse class="leg-l" cx="-5" cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <ellipse class="leg-r" cx="5"  cy="0" rx="5" ry="2" fill="#0a0e1a"/>
+                <!-- hoodie body -->
+                <path d="M -14 -50 Q -14 -60 0 -60 Q 14 -60 14 -50 L 13 -16 L -13 -16 Z" fill="#20724a"/>
+                <!-- hood -->
+                <path d="M -12 -60 Q -14 -68 -6 -70 L 6 -70 Q 14 -68 12 -60 Q 8 -66 0 -66 Q -8 -66 -12 -60 Z" fill="#175038"/>
+                <!-- pocket -->
+                <path d="M -8 -30 L 8 -30 L 6 -20 L -6 -20 Z" fill="#175038"/>
+                <!-- draw strings -->
+                <line x1="-3" y1="-60" x2="-3" y2="-52" stroke="#f5f5f5" stroke-width=".8"/>
+                <line x1="3"  y1="-60" x2="3"  y2="-52" stroke="#f5f5f5" stroke-width=".8"/>
+                <circle cx="-3" cy="-51" r=".9" fill="#f5f5f5"/>
+                <circle cx="3"  cy="-51" r=".9" fill="#f5f5f5"/>
+                <!-- id lanyard -->
+                <line x1="-6" y1="-58" x2="4" y2="-42" stroke="#6cff9a" stroke-width=".7"/>
+                <line x1="6"  y1="-58" x2="4" y2="-42" stroke="#6cff9a" stroke-width=".7"/>
+                <rect x="1" y="-42" width="6" height="7" fill="#6cff9a"/>
+                <!-- arms -->
+                <rect class="arm arm-l" x="-18" y="-56" width="5" height="26" rx="2" fill="#20724a"/>
+                <rect class="arm arm-r" x="13"  y="-56" width="5" height="26" rx="2" fill="#20724a"/>
+                <!-- hands -->
+                <circle cx="-16" cy="-30" r="3" fill="#f5d7b2"/>
+                <circle cx="15"  cy="-30" r="3" fill="#f5d7b2"/>
+                <!-- tablet held -->
+                <rect x="-3" y="-34" width="18" height="12" fill="#0a0e1a" stroke="#6cff9a" stroke-width=".6"/>
+                <rect x="-1" y="-32" width="14" height="8" fill="#0e2a20"/>
+                <line x1="0" y1="-30" x2="12" y2="-30" stroke="#6cff9a" stroke-width=".5"/>
+                <line x1="0" y1="-28" x2="9"  y2="-28" stroke="#6cff9a" stroke-width=".5"/>
+                <!-- neck -->
+                <rect x="-3" y="-64" width="6" height="6" fill="#f5d7b2"/>
+                <!-- head -->
+                <ellipse cx="0" cy="-72" rx="10" ry="11" fill="#f5d7b2"/>
+                <circle cx="-10" cy="-72" r="1.6" fill="#e6be95"/>
+                <circle cx="10"  cy="-72" r="1.6" fill="#e6be95"/>
+                <!-- messy brown hair -->
+                <path d="M -11 -80 Q -12 -86 -4 -86 L 4 -86 Q 12 -86 12 -80 Q 10 -82 6 -80 Q 2 -84 -2 -80 Q -6 -82 -10 -80 Z" fill="#5a3a1e"/>
+                <path d="M -8 -83 Q -6 -86 -3 -85" stroke="#5a3a1e" stroke-width="1.4" fill="none"/>
+                <!-- eyes (relaxed) -->
+                <path d="M -6 -71 Q -5 -70 -4 -71" stroke="#0a0e1a" stroke-width="1.1" fill="none"/>
+                <path d="M 4 -71 Q 5 -70 6 -71" stroke="#0a0e1a" stroke-width="1.1" fill="none"/>
+                <!-- calm mouth -->
+                <path d="M -2 -66 L 2 -66" stroke="#4a2a1a" stroke-width=".9"/>
+              </svg>
+            </div>
+            <div class="floortag">神谷 湊</div>
+            <div class="speech" id="sp-kamiya"></div>
+          </div>
+
+        </div>
+
+        <div class="scan"></div>
+      </div>
+    </section>
+
+    <aside class="panel feed">
+      <div class="panel-head">
+        <span><span class="tag">■</span> LIVE ACTIVITY</span>
+        <span class="live">STREAMING</span>
+      </div>
+      <div class="feed-body" id="feed"></div>
+    </aside>
+  </div>
+
+  <!-- ============ タスクボード ============ -->
+  <div class="view view-tasks">
+    <div class="panel" style="height:100%; padding:0">
+      <div class="panel-head">
+        <span><span class="tag">■</span> TASK BOARD ／ 24時間分</span>
+        <span class="live">AUTO-DISPATCH ON</span>
+      </div>
+      <div class="kanban">
+        <div class="col q">
+          <h3>QUEUED <span class="cnt" id="q-cnt">4</span></h3>
+          <div class="col-body" id="col-q"></div>
+        </div>
+        <div class="col p">
+          <h3>IN PROGRESS <span class="cnt" id="p-cnt">5</span></h3>
+          <div class="col-body" id="col-p"></div>
+        </div>
+        <div class="col r">
+          <h3>REVIEW <span class="cnt" id="r-cnt">2</span></h3>
+          <div class="col-body" id="col-r"></div>
+        </div>
+        <div class="col d">
+          <h3>DONE <span class="cnt" id="d-cnt">14</span></h3>
+          <div class="col-body" id="col-d"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AUTOCALL ============ -->
+  <div class="view view-autocall">
+    <section class="panel autocall-main">
+      <div class="panel-head">
+        <span><span class="tag">■</span> AUTOCALL AI ／ SALES DIAL SCHEDULE</span>
+        <span class="live">4件モニタ中</span>
+      </div>
+      <div class="autocall-metrics">
+        <div class="am a1"><div class="lb">今日の架電</div><div class="vl">142<span class="un">件</span></div></div>
+        <div class="am a2"><div class="lb">通話中</div><div class="vl">4<span class="un">回線</span></div></div>
+        <div class="am a3"><div class="lb">見込み獲得</div><div class="vl">18<span class="un">件</span></div></div>
+        <div class="am a4"><div class="lb">平均通話</div><div class="vl">1:38</div></div>
+        <div class="am a5"><div class="lb">明日の予約</div><div class="vl">6<span class="un">件</span></div></div>
+      </div>
+      <div class="calltable">
+        <table class="ct">
+          <thead>
+            <tr><th>時刻</th><th>宛先</th><th>担当</th><th>結果</th><th>ステータス</th></tr>
+          </thead>
+          <tbody id="ct-body">
+            <tr><td class="mono">17:43</td><td>株式会社アオイ製作所</td><td>星野AI</td><td>A2-受</td><td><span class="st ing">通話中</span></td></tr>
+            <tr><td class="mono">17:41</td><td>チチイワ工業株式会社</td><td>星野AI</td><td>A1-連</td><td><span class="st done">完了</span></td></tr>
+            <tr><td class="mono">17:39</td><td>株式会社カラクリ商会</td><td>星野AI</td><td>A3-見</td><td><span class="st done">完了</span></td></tr>
+            <tr><td class="mono">17:37</td><td>株式会社シダマ物流</td><td>星野AI</td><td>—</td><td><span class="st no">不在</span></td></tr>
+            <tr><td class="mono">17:35</td><td>株式会社ヒヨリ観光</td><td>星野AI</td><td>A1-連</td><td><span class="st done">完了</span></td></tr>
+            <tr><td class="mono">17:32</td><td>株式会社ミオリ興産</td><td>星野AI</td><td>A2-受</td><td><span class="st done">完了</span></td></tr>
+            <tr><td class="mono">17:28</td><td>チチイワ工業株式会社</td><td>星野AI</td><td>A1-連</td><td><span class="st done">完了</span></td></tr>
+            <tr><td class="mono">17:24</td><td>株式会社アオイ製作所</td><td>星野AI</td><td>再架電</td><td><span class="st wait">再架電待</span></td></tr>
+            <tr><td class="mono">17:20</td><td>株式会社カラクリ商会</td><td>星野AI</td><td>A3-見</td><td><span class="st done">完了</span></td></tr>
+            <tr><td class="mono">17:17</td><td>株式会社シダマ物流</td><td>星野AI</td><td>—</td><td><span class="st no">不在</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="panel autocall-side">
+      <div class="panel-head">
+        <span><span class="tag">■</span> CALL MONITOR</span>
+        <span class="live">LIVE</span>
+      </div>
+      <div class="call-monitor">
+        <div class="cm-head">
+          <div>
+            <div class="cm-title">株式会社アオイ製作所</div>
+            <div class="cm-sub">TEL 06-XXXX-XXXX ／ 経過 00:47</div>
+          </div>
+          <div class="cm-sub" style="color:var(--gr)">星野AI (V-04)</div>
+        </div>
+        <div class="waveform">
+          <svg viewBox="0 0 460 70" preserveAspectRatio="none" id="wave"></svg>
+        </div>
+        <div class="transcript" id="transcript"></div>
+      </div>
+      <div class="analysis">
+        <div class="an-cell k"><div class="l">好感度</div><div class="v">A / +0.72</div></div>
+        <div class="an-cell m"><div class="l">クレーム兆候</div><div class="v">— / 0.00</div></div>
+        <div class="an-cell g"><div class="l">受注可能性</div><div class="v">64%</div></div>
+        <div class="an-cell c"><div class="l">要点抽出</div><div class="v">3件</div></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============ KPI詳細 ============ -->
+  <div class="view view-kpi">
+    <div class="panel" style="height:100%; padding:0">
+      <div class="panel-head">
+        <span><span class="tag">■</span> KPI DETAIL ／ 直近14日</span>
+        <span class="live">AUTO-REFRESH</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card kc rev" style="grid-row:span 1">
+          <div class="kc-head"><span>MONTHLY REVENUE ／ 月次売上</span><span style="color:var(--gr)">▲ 8.4%</span></div>
+          <div class="kc-body">
+            <div style="display:flex; align-items:baseline; gap:12px">
+              <div class="bignum" id="kd-rev">¥ 3,227,000</div>
+              <div style="color:var(--dim); font-size:12px">目標 <b style="color:var(--text)">¥ 3,500,000</b> 達成率 92%</div>
+            </div>
+            <svg class="chart" viewBox="0 0 900 220" preserveAspectRatio="none" id="chart-rev"></svg>
+          </div>
+        </div>
+        <div class="kpi-card kc done">
+          <div class="kc-head"><span>タスク完了率</span><span style="color:var(--gr)">▲ 3.1%</span></div>
+          <div class="kc-body">
+            <div class="bignum" id="kd-done">96.6%</div>
+            <div style="color:var(--dim); font-size:12px; margin-bottom:12px">直近24h 完了 <b style="color:var(--text)">147</b> ／ 総 <b style="color:var(--text)">152</b></div>
+            <div class="breakdown">
+              <div class="row"><span style="color:var(--dim)">星野AI（営業）</span><div class="bar"><span class="fill" style="width:98%; background:linear-gradient(90deg,var(--cy),var(--pu))"></span></div><span style="color:var(--text); font-family:'JetBrains Mono',monospace">98%</span></div>
+              <div class="row"><span style="color:var(--dim)">白石AI（経理）</span><div class="bar"><span class="fill" style="width:95%; background:linear-gradient(90deg,var(--mg),var(--gd))"></span></div><span style="color:var(--text); font-family:'JetBrains Mono',monospace">95%</span></div>
+              <div class="row"><span style="color:var(--dim)">神谷AI（PM）</span><div class="bar"><span class="fill" style="width:99%; background:linear-gradient(90deg,var(--gr),var(--cy))"></span></div><span style="color:var(--text); font-family:'JetBrains Mono',monospace">99%</span></div>
+              <div class="row"><span style="color:var(--dim)">桐生（社長）</span><div class="bar"><span class="fill" style="width:88%; background:linear-gradient(90deg,var(--gd),var(--mg))"></span></div><span style="color:var(--text); font-family:'JetBrains Mono',monospace">88%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="kpi-card kc book">
+          <div class="kc-head"><span>本日の予約</span><span style="color:var(--gr)">▲ 12%</span></div>
+          <div class="kc-body">
+            <div class="bignum" id="kd-book">43</div>
+            <div style="color:var(--dim); font-size:12px">神戸→沖縄 <b style="color:var(--text)">18</b>／北海道 <b style="color:var(--text)">12</b>／京都 <b style="color:var(--text)">9</b>／その他 <b style="color:var(--text)">4</b></div>
+            <svg class="chart" viewBox="0 0 400 100" preserveAspectRatio="none" id="chart-book"></svg>
+          </div>
+        </div>
+        <div class="kpi-card kc call">
+          <div class="kc-head"><span>顧客対応</span><span style="color:var(--gr)">▲ 21件</span></div>
+          <div class="kc-body">
+            <div class="bignum" id="kd-call">142</div>
+            <div style="color:var(--dim); font-size:12px">架電 <b style="color:var(--text)">142</b> ／ 応答 <b style="color:var(--text)">63</b> ／ 見込 <b style="color:var(--text)">18</b></div>
+            <svg class="chart" viewBox="0 0 400 100" preserveAspectRatio="none" id="chart-call"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KPI BAR ============ -->
+<div class="kpi-bar">
+  <div class="kpi book">
+    <div class="k-label">TODAY'S BOOKINGS</div>
+    <div class="k-val" id="kv-book">0</div>
+    <div class="k-delta up" id="kd-book-delta">▲ 12%</div>
+    <div class="k-sub">神戸→沖縄が好調</div>
+    <svg class="k-spark" viewBox="0 0 240 40" preserveAspectRatio="none" id="sp-book"></svg>
+  </div>
+  <div class="kpi rev">
+    <div class="k-label">MONTH-TO-DATE REVENUE</div>
+    <div class="k-val" id="kv-rev">¥ 0</div>
+    <div class="k-delta up">▲ 8.4%</div>
+    <div class="k-sub">目標達成率 92%</div>
+    <svg class="k-spark" viewBox="0 0 240 40" preserveAspectRatio="none" id="sp-rev"></svg>
+  </div>
+  <div class="kpi call">
+    <div class="k-label">AUTOCALL 応対</div>
+    <div class="k-val" id="kv-call">0</div>
+    <div class="k-delta up">▲ 21</div>
+    <div class="k-sub">応答率 44.3%</div>
+    <svg class="k-spark" viewBox="0 0 240 40" preserveAspectRatio="none" id="sp-call"></svg>
+  </div>
+  <div class="kpi done">
+    <div class="k-label">タスク完了率</div>
+    <div class="k-val" id="kv-done">0<span class="k-unit">%</span></div>
+    <div class="k-delta up">▲ 3.1%</div>
+    <div class="k-sub">147 / 152 件</div>
+    <svg class="k-spark" viewBox="0 0 240 40" preserveAspectRatio="none" id="sp-done"></svg>
+  </div>
+  <div class="kpi nps">
+    <div class="k-label">CUSTOMER NPS</div>
+    <div class="k-val" id="kv-nps">0</div>
+    <div class="k-delta up">▲ 4pt</div>
+    <div class="k-sub">「対応が速い」＋28</div>
+    <svg class="k-spark" viewBox="0 0 240 40" preserveAspectRatio="none" id="sp-nps"></svg>
+  </div>
+</div>
+
+<div class="crt"></div>
+<div class="vignette"></div>
+
+<script>
+/* ================= View switching ================= */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelector('.view-'+t.dataset.view).classList.add('active');
+  });
+});
+
+/* ================= Clock ================= */
+function tickClock(){
+  const now = new Date();
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('clock').textContent =
+    `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+}
+setInterval(tickClock, 1000); tickClock();
+
+/* ================= FPS/latency wobble ================= */
+setInterval(()=>{
+  const fps = 58 + Math.floor(Math.random()*4);
+  document.getElementById('fps').textContent = `${fps} FPS`;
+  const lat = 32 + Math.floor(Math.random()*22);
+  document.getElementById('lat').textContent = `${lat} ms`;
+  document.getElementById('inflight').textContent = 5 + Math.floor(Math.random()*6);
+},1400);
+
+/* ================= KPI counters ================= */
+function ease(t){ return 1-Math.pow(1-t,3); }
+function animateNumber(el, from, to, dur, formatter){
+  const t0 = performance.now();
+  function step(now){
+    const p = Math.min(1,(now-t0)/dur);
+    const v = from + (to-from)*ease(p);
+    el.innerHTML = formatter(v);
+    if(p<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+const yenFmt = v => "¥ " + Math.floor(v).toLocaleString();
+const intFmt = v => Math.floor(v).toLocaleString();
+const pctFmt = v => v.toFixed(1) + '<span class="k-unit">%</span>';
+const plainFmt = v => Math.floor(v).toString();
+
+animateNumber(document.getElementById('kv-book'), 0, 43, 1600, intFmt);
+animateNumber(document.getElementById('kv-rev'), 0, 3227000, 2400, yenFmt);
+animateNumber(document.getElementById('kv-call'), 0, 142, 1800, intFmt);
+animateNumber(document.getElementById('kv-done'), 0, 96.6, 2200, pctFmt);
+animateNumber(document.getElementById('kv-nps'), 0, 72, 2000, plainFmt);
+
+setInterval(()=>{
+  const drift = (base, spread, el, fmt)=>{
+    const v = base + Math.floor(Math.random()*spread) - spread/2;
+    el.innerHTML = fmt(v);
+  };
+  drift(43, 4, document.getElementById('kv-book'), intFmt);
+  drift(142, 8, document.getElementById('kv-call'), intFmt);
+  drift(72, 4, document.getElementById('kv-nps'), plainFmt);
+}, 4200);
+
+/* ================= Sparklines ================= */
+function sparkPath(vals, w, h){
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const nx = i => (i/(vals.length-1))*w;
+  const ny = v => h - ((v-min)/(max-min || 1))*(h-4) - 2;
+  let d = `M ${nx(0)},${ny(vals[0])}`;
+  for(let i=1;i<vals.length;i++) d += ` L ${nx(i)},${ny(vals[i])}`;
+  return d;
+}
+function drawSpark(id, color){
+  const svg = document.getElementById(id);
+  const w = 240, h = 40;
+  const vals = Array.from({length:24},()=>Math.random()*100);
+  const d = sparkPath(vals, w, h);
+  svg.innerHTML = `
+    <defs><linearGradient id="g-${id}" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="${color}" stop-opacity=".55"/>
+      <stop offset="1" stop-color="${color}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${d} L ${w},${h} L 0,${h} Z" fill="url(#g-${id})"/>
+    <path d="${d}" stroke="${color}" stroke-width="1.6" fill="none" style="filter:drop-shadow(0 0 6px ${color})"/>`;
+}
+drawSpark('sp-book', '#3ff0ff');
+drawSpark('sp-rev', '#ffcf5c');
+drawSpark('sp-call', '#6cff9a');
+drawSpark('sp-done', '#ff4dc9');
+drawSpark('sp-nps', '#a06bff');
+
+/* ================= Feed generator ================= */
+const feedTemplates = [
+  {cls:'act-book', who:'星野AI', body:'神戸→<span class="kw">沖縄・那覇3泊</span> 2名分を新規予約（田島様）。'},
+  {cls:'act-billing', who:'白石AI', body:'請求書 <span class="kw">INV-2026-0812</span> 発行、口座入金確認済。'},
+  {cls:'act-call', who:'星野AI', body:'AUTOCALL <span class="kw">株式会社アオイ製作所</span> A2受注意向あり、資料送付。'},
+  {cls:'act-order', who:'桐生 光', body:'来月の <span class="kw">京都ツアー枠</span> を +8席で開放。'},
+  {cls:'act-mtg', who:'神谷AI', body:'朝会サマリを Notion「日次共有」へ書き込み。<span class="kw">未対応 2件</span>。'},
+  {cls:'act-book', who:'星野AI', body:'佐藤様 <span class="kw">キャンセル待ち</span>→席確保、通知送信。'},
+  {cls:'act-billing', who:'白石AI', body:'仕訳 15件を自動起票。<span class="kw">差異 0.00円</span>。'},
+  {cls:'act-order', who:'神谷AI', body:'白石AIへ <span class="kw">未回収 3件</span> の催促メール起案を指示。'},
+  {cls:'act-call', who:'星野AI', body:'ヒヨリ観光 <span class="kw">明日13:00再架電</span> をスケジュール登録。'},
+  {cls:'act-mtg', who:'桐生 光', body:'週次ゴール見直し：<span class="kw">神戸→北海道枠</span> を最優先へ引き上げ。'},
+  {cls:'act-book', who:'星野AI', body:'LP経由 <span class="kw">問い合わせ 6件</span> を自動振り分け、担当割当済。'},
+  {cls:'act-billing', who:'白石AI', body:'弥生会計への同期完了。今日の差分 <span class="kw">37件</span>。'},
+];
+const feed = document.getElementById('feed');
+let feedIdx = 0;
+function pushFeed(){
+  const t = feedTemplates[feedIdx++ % feedTemplates.length];
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const el = document.createElement('div');
+  el.className = 'feed-item '+t.cls;
+  el.innerHTML = `
+    <div class="fi-head"><div class="fi-who">${t.who}</div><div class="fi-time">${time}</div></div>
+    <div class="fi-body">${t.body}</div>`;
+  feed.prepend(el);
+  while(feed.children.length>18) feed.removeChild(feed.lastChild);
+}
+for(let i=0;i<6;i++) pushFeed();
+setInterval(pushFeed, 2800);
+
+/* ================= Characters walking + conversations ================= */
+const rooms = {
+  ceo:   {x:[560,900], y:[40,270]},
+  sales: {x:[40,480],  y:[40,270]},
+  acct:  {x:[40,380],  y:[340,600]},
+  meet:  {x:[440,900], y:[340,600]},
+};
+function rand(a,b){ return a + Math.random()*(b-a); }
+function pickPoint(r){ return {x:rand(r.x[0],r.x[1]), y:rand(r.y[0],r.y[1])}; }
+function pickTablePoint(){
+  // Seats around meeting table (in floor coords)
+  const seats = [
+    {x:560,y:400}, {x:640,y:400}, {x:720,y:400}, {x:800,y:400},
+    {x:560,y:520}, {x:640,y:520}, {x:720,y:520}, {x:800,y:520}
+  ];
+  return seats[Math.floor(Math.random()*seats.length)];
+}
+function pickCeoDeskPoint(){
+  return { x: 620 + Math.random()*80, y: 200 + Math.random()*40 };
+}
+
+const chars = {
+  kiryu:   {id:'ch-kiryu',     spId:'sp-kiryu',     home:'ceo',   name:'桐生',    tag:'kiryu',    tasks:['戦略見直し','KPI確認','神谷と朝会','価格改定判断','海外パートナー打診']},
+  hoshino: {id:'ch-hoshino',   spId:'sp-hoshino',   home:'sales', name:'星野',    tag:'hoshino',  tasks:['見積作成','LP問合せ返信','AUTOCALL監視','顧客提案書更新','受注承認申請']},
+  shiraishi:{id:'ch-shiraishi',spId:'sp-shiraishi', home:'acct',  name:'白石',    tag:'shiraishi',tasks:['入金確認','請求書発行','仕訳起票','未回収催促','弥生同期']},
+  kamiya:  {id:'ch-kamiya',    spId:'sp-kamiya',    home:'meet',  name:'神谷',    tag:'kamiya',   tasks:['タスク割当','朝会準備','進捗集計','ブロッカー解消','夕会レポート']},
+};
+
+// Track locking (during conversation, characters shouldn't wander off)
+const locked = {kiryu:false, hoshino:false, shiraishi:false, kamiya:false};
+
+function moveChar(charKey, opts={}){
+  if(locked[charKey] && !opts.force) return;
+  const c = chars[charKey];
+  const el = document.getElementById(c.id);
+  let p;
+  if(opts.point){ p = opts.point; }
+  else {
+    const targetRoom = Math.random()<.55 ? c.home : ['ceo','sales','acct','meet'][Math.floor(Math.random()*4)];
+    p = pickPoint(rooms[targetRoom]);
+  }
+  el.classList.add('walking');
+  el.style.left = p.x+'px';
+  el.style.top  = p.y+'px';
+  setTimeout(()=>el.classList.remove('walking'), 3200);
+}
+
+function idleAllRoaming(){
+  Object.keys(chars).forEach((k,i)=>setTimeout(()=>moveChar(k), i*300));
+}
+setTimeout(idleAllRoaming, 500);
+const roamHandle = setInterval(idleAllRoaming, 5400);
+
+/* ---------- Conversation choreography ---------- */
+const conversations = [
+  { room:'ceo', points:[{x:640,y:180},{x:720,y:200}],
+    parts:['kiryu','kamiya'],
+    lines:[
+      ['kiryu','神谷、今週のKPIどう？'],
+      ['kamiya','予約は<b>+12%</b>、狙い通りです。'],
+      ['kiryu','北海道枠だけ取りこぼしがあるな。'],
+      ['kamiya','了解、13時までに星野へ振ります。'],
+    ]
+  },
+  { room:'meet', points:[{x:600,y:400},{x:720,y:400}],
+    parts:['kamiya','hoshino'],
+    lines:[
+      ['kamiya','星野、17時のアオイ製作所どう？'],
+      ['hoshino','提案3案、送信済みです。'],
+      ['kamiya','ナイス、承認待ちに上げてOK。'],
+      ['hoshino','はい、桐生さんへ回します。'],
+    ]
+  },
+  { room:'ceo', points:[{x:660,y:190},{x:760,y:210}],
+    parts:['shiraishi','kiryu'],
+    lines:[
+      ['shiraishi','社長、8月度未回収が<b>3社</b>残っています。'],
+      ['kiryu','金額は？'],
+      ['shiraishi','合計<b>¥47万</b>。文案は起案済です。'],
+      ['kiryu','承認。今日中に送って。'],
+    ]
+  },
+  { room:'meet', points:[{x:600,y:400},{x:720,y:400}],
+    parts:['hoshino','shiraishi'],
+    lines:[
+      ['hoshino','白石さん、アオイの請求書、明日送っていい？'],
+      ['shiraishi','金額固まってからでOKです。'],
+      ['hoshino','17時以降になります。'],
+      ['shiraishi','了解、待機します。'],
+    ]
+  },
+  { room:'meet', points:[{x:600,y:400},{x:720,y:400}],
+    parts:['kamiya','shiraishi'],
+    lines:[
+      ['kamiya','白石さん、日次レポート集計しました。'],
+      ['shiraishi','KPI 1件だけ誤入力ありました、修正します。'],
+      ['kamiya','助かります、朝会前までで大丈夫です。'],
+    ]
+  },
+  { room:'meet', points:[{x:600,y:400},{x:720,y:400},{x:660,y:520}],
+    parts:['kiryu','hoshino','kamiya'],
+    lines:[
+      ['kiryu','朝会始めよう。今日の一番の山は？'],
+      ['hoshino','午後のアオイ商談、社員旅行20名の件です。'],
+      ['kamiya','受注確度<b>64%</b>、外部リスクは天候のみ。'],
+      ['kiryu','了解、成約したら白石に振って。'],
+    ]
+  },
+  { room:'sales', points:[{x:200,y:150},{x:300,y:150}],
+    parts:['hoshino','kamiya'],
+    lines:[
+      ['hoshino','神谷さん、AUTOCALLの対応スクリプト更新ました？'],
+      ['kamiya','はい、A2以上の分岐を追加しています。'],
+      ['hoshino','ありがとうございます、17時からテストします。'],
+    ]
+  },
+  { room:'acct', points:[{x:180,y:440},{x:260,y:440}],
+    parts:['shiraishi','kamiya'],
+    lines:[
+      ['shiraishi','神谷さん、経費の分類、旅費でいいですか？'],
+      ['kamiya','はい、案件Aに紐付けでお願いします。'],
+      ['shiraishi','了解しました、仕訳切ります。'],
+    ]
+  },
+  { room:'ceo', points:[{x:660,y:190},{x:750,y:210}],
+    parts:['kiryu','hoshino'],
+    lines:[
+      ['kiryu','星野、京都ツアー <b>+8席</b> 開放したから捌けるか？'],
+      ['hoshino','LP経由の問合せに割り当てます、今日中に埋めます。'],
+      ['kiryu','よし、任せた。'],
+    ]
+  },
+];
+
+function showSpeech(charKey, html, dur=2400){
+  const el = document.getElementById(chars[charKey].spId);
+  el.innerHTML = `<b>${chars[charKey].name}</b>：${html}`;
+  el.classList.add('on');
+  return new Promise(res=>setTimeout(()=>{ el.classList.remove('on'); res(); }, dur));
+}
+
+async function runConversation(){
+  const conv = conversations[Math.floor(Math.random()*conversations.length)];
+  // Lock and gather participants
+  conv.parts.forEach((k,i)=>{
+    locked[k] = true;
+    moveChar(k, {point: conv.points[i], force:true});
+  });
+  // Wait for arrival
+  await new Promise(res=>setTimeout(res, 3400));
+  // Play lines with pause
+  for(const [who, text] of conv.lines){
+    await showSpeech(who, text, 2600);
+    await new Promise(res=>setTimeout(res, 250));
+  }
+  // Release
+  conv.parts.forEach(k=>locked[k] = false);
+}
+
+// Chain conversations every ~10s
+async function conversationLoop(){
+  await new Promise(res=>setTimeout(res, 4000));
+  while(true){
+    await runConversation();
+    await new Promise(res=>setTimeout(res, 4500 + Math.random()*3000));
+  }
+}
+conversationLoop();
+
+/* Occasional standalone task bubbles for non-conversing chars */
+setInterval(()=>{
+  Object.keys(chars).forEach(k=>{
+    if(locked[k]) return;
+    if(Math.random()<.3){
+      const t = chars[k].tasks[Math.floor(Math.random()*chars[k].tasks.length)];
+      showSpeech(k, t, 1800);
+    }
+  });
+}, 3400);
+
+/* ================= Task board cards ================= */
+const taskDefs = {
+  q:[
+    ['SALES','鈴木様 見積再送','hoshino','12:40'],
+    ['SALES','紀香ツアー LP改稿','hoshino','12:52'],
+    ['FIN','未回収 3社 催促文','shiraishi','13:05'],
+    ['PM','週次サマリ収集','kamiya','13:10'],
+  ],
+  p:[
+    ['SALES','AUTOCALL 拡大 (20社)','hoshino','進行 62%'],
+    ['SALES','北海道ツアー席開放','hoshino','進行 40%'],
+    ['FIN','8月度仕訳 自動化','shiraishi','進行 78%'],
+    ['PM','神谷→星野 タスク再配分','kamiya','進行 25%'],
+    ['CEO','価格改定 判断','kiryu','進行 55%'],
+  ],
+  r:[
+    ['FIN','請求書 INV-2026-0812','shiraishi','桐生 承認待ち'],
+    ['SALES','見積 田島様','hoshino','桐生 承認待ち'],
+  ],
+  d:[
+    ['SALES','神戸→那覇 3泊予約完了','hoshino','done'],
+    ['FIN','入金確認 6社 完了','shiraishi','done'],
+    ['SALES','ヒヨリ観光 再架電予約','hoshino','done'],
+    ['PM','朝会サマリ Notion 送信','kamiya','done'],
+    ['FIN','弥生会計 同期 37件','shiraishi','done'],
+    ['SALES','LP経由問合せ 6件割当','hoshino','done'],
+    ['CEO','京都ツアー枠 +8席','kiryu','done'],
+    ['SALES','キャンセル待ち→席確保','hoshino','done'],
+    ['FIN','仕訳 15件 起票','shiraishi','done'],
+    ['SALES','カラクリ商会 A3見込','hoshino','done'],
+    ['PM','進捗集計 (16:00)','kamiya','done'],
+    ['SALES','ミオリ興産 A2受注','hoshino','done'],
+    ['FIN','入金差異 0円 確認','shiraishi','done'],
+    ['SALES','チチイワ工業 A1連絡','hoshino','done'],
+  ]
+};
+function renderTasks(){
+  for(const [col, items] of Object.entries(taskDefs)){
+    const host = document.getElementById('col-'+col);
+    host.innerHTML='';
+    items.forEach(([tag,title,who,meta])=>{
+      const el = document.createElement('div');
+      el.className = 'card '+who;
+      el.innerHTML = `
+        <div class="c-tag">${tag}</div>
+        <div class="c-title">${title}</div>
+        <div class="c-meta"><span class="c-who"><span class="av"></span>${who}</span><span>${meta}</span></div>`;
+      host.appendChild(el);
+    });
+  }
+  document.getElementById('q-cnt').textContent = taskDefs.q.length;
+  document.getElementById('p-cnt').textContent = taskDefs.p.length;
+  document.getElementById('r-cnt').textContent = taskDefs.r.length;
+  document.getElementById('d-cnt').textContent = taskDefs.d.length;
+}
+renderTasks();
+
+setInterval(()=>{
+  if(taskDefs.q.length && taskDefs.p.length<7){
+    const t = taskDefs.q.shift();
+    t[3] = '進行 15%';
+    taskDefs.p.push(t);
+  }
+  if(taskDefs.p.length>4 && Math.random()<.4){
+    const t = taskDefs.p.shift();
+    t[3] = '桐生 承認待ち';
+    taskDefs.r.push(t);
+  }
+  if(taskDefs.r.length>1 && Math.random()<.5){
+    const t = taskDefs.r.shift();
+    t[3] = 'done';
+    taskDefs.d.unshift(t);
+    if(taskDefs.d.length>18) taskDefs.d.pop();
+  }
+  if(taskDefs.q.length<2){
+    taskDefs.q.push(['SALES','新規 LP 問合せ返信','hoshino', new Date().toTimeString().slice(0,5)]);
+  }
+  renderTasks();
+}, 5200);
+
+/* ================= AUTOCALL waveform ================= */
+const wave = document.getElementById('wave');
+function drawWave(){
+  const bars = 84, w = 460, h = 70;
+  let html = '';
+  for(let i=0;i<bars;i++){
+    const bh = 4 + Math.abs(Math.sin(i*.35 + performance.now()/300))*Math.random()*54;
+    const x = i*(w/bars);
+    const y = (h-bh)/2;
+    const col = i%9===0 ? '#ff4dc9' : (i%5===0 ? '#ffcf5c' : '#3ff0ff');
+    html += `<rect x="${x}" y="${y}" width="${(w/bars)-1.5}" height="${bh}" rx="1.5" fill="${col}" opacity="${.55+Math.random()*.45}" />`;
+  }
+  wave.innerHTML = html;
+}
+setInterval(drawWave, 120); drawWave();
+
+/* ================= Transcript ================= */
+const tsData = [
+  ['ai','星野AI','お世話になっております。AIツバサ・トラベルの星野と申します。今1〜2分だけよろしいでしょうか。'],
+  ['hu','担当者','はい、大丈夫ですよ。'],
+  ['ai','星野AI','ありがとうございます。御社の秋の社員旅行、神戸発の直行チャーターで最大30名まで <span class="kw" style="color:var(--gd)">1名 ¥38,800</span> からご案内できまして…'],
+  ['hu','担当者','あぁ、実は今ちょうど検討し始めたところで。'],
+  ['ai','星野AI','タイミング良かったです。ではお日程の候補と人数感だけ、いま伺ってもよろしいですか？'],
+  ['hu','担当者','11月の第2週で20名前後を予定しています。'],
+  ['ai','星野AI','承知しました。同条件で <span class="kw" style="color:var(--gd)">11/8-10 出発</span> の見積を今夜中に3案お送りします。宛先は info@ で大丈夫ですか？'],
+  ['hu','担当者','はい、それでお願いします。'],
+];
+const tscript = document.getElementById('transcript');
+function pushTs(idx){
+  const [kind,who,body] = tsData[idx%tsData.length];
+  const el = document.createElement('div');
+  el.className = 'ts '+kind;
+  el.innerHTML = `<div class="who">${who}</div>${body}`;
+  tscript.appendChild(el);
+  tscript.scrollTop = tscript.scrollHeight;
+  if(tscript.children.length>10) tscript.removeChild(tscript.firstChild);
+}
+let tsi=0; for(let i=0;i<4;i++) pushTs(tsi++);
+setInterval(()=>pushTs(tsi++), 2600);
+
+/* ================= KPI detail charts ================= */
+function buildLine(id, points, color, w=900, h=220){
+  const svg = document.getElementById(id);
+  const max = Math.max(...points), min = Math.min(...points);
+  const nx = i => (i/(points.length-1))*w;
+  const ny = v => h - ((v-min)/(max-min || 1))*(h-30) - 20;
+  let d = `M ${nx(0)},${ny(points[0])}`;
+  for(let i=1;i<points.length;i++) d += ` L ${nx(i)},${ny(points[i])}`;
+  let grid = '';
+  for(let g=0; g<=4; g++){
+    const y = (h/4)*g;
+    grid += `<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="rgba(255,255,255,.05)" />`;
+  }
+  svg.innerHTML = `
+    <defs><linearGradient id="lg-${id}" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="${color}" stop-opacity=".45"/>
+      <stop offset="1" stop-color="${color}" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${grid}
+    <path d="${d} L ${w},${h} L 0,${h} Z" fill="url(#lg-${id})"/>
+    <path d="${d}" stroke="${color}" stroke-width="2" fill="none" style="filter:drop-shadow(0 0 8px ${color})"/>`;
+}
+buildLine('chart-rev', [1.9,2.1,2.0,2.4,2.5,2.6,2.4,2.8,2.9,3.0,3.1,3.05,3.2,3.227], '#ffcf5c', 900, 200);
+buildLine('chart-book', [22,26,29,31,28,33,37,40,38,41,43,44,42,43], '#3ff0ff', 400, 100);
+buildLine('chart-call', [80,95,110,118,120,125,130,132,138,141,142,145,144,142], '#6cff9a', 400, 100);
+
+document.getElementById('kd-rev').textContent = "¥ 3,227,000";
+document.getElementById('kd-book').textContent = "43";
+document.getElementById('kd-call').textContent = "142";
+document.getElementById('kd-done').textContent = "96.6%";
+
+</script>
+</body>
+</html>
