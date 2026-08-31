@@ -7,11 +7,12 @@
 
 有効化後、以下でアクセス可：
 
-- **入口（V1〜V4 まとめ）**: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/
+- **入口（V1〜V5 まとめ）**: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/
 - V1 · 抽象トークン: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/20260829_ai_travel_company_demo_v1.html
 - V2 · 人型SVG＋会話: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/20260829_ai_travel_company_demo_v2.html
 - V3 · 時間軸×ズーム×フロー弧線: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/20260829_ai_travel_company_demo_v3.html
-- V4 · フレーム破壊: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/20260829_ai_travel_company_demo.html
+- V4 · フレーム破壊: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/20260829_ai_travel_company_demo_v4.html
+- **V5 · AI社長シミュ・1日モード（軽ゲーム／現行）**: https://tanaka264839-cmyk.github.io/ai-travel-demo-20260829/20260829_ai_travel_company_demo.html
 
 ## バージョン別の狙い
 
@@ -21,6 +22,7 @@
 | V2  | 人型SVG＋夜景背景＋9会話シナリオ同時投入 | 人間らしさ＋世界感＋会話が生まれる |
 | V3  | 時間軸ドラマ＋カメラズーム＋タスクフロー弧線 | 8→21時の1日ドラマ／部屋別の立体接写 |
 | V4  | フレーム概念を解体、UIを世界内オブジェクト化 | KPIは光柱、時計/天気/タブは空中AR文字 |
+| V5  | 訪問者が社長として1日を操作する軽ゲーム化（7決断→称号スコア） | 見るデモから遊べるデモへ／プレイ時間 約1〜2分 |
 
 ## 生成
 

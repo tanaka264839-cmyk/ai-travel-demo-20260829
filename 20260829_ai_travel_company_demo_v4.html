@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>AI ツバサ・トラベル — Live Ops Dashboard (v3)</title>
+<title>AI ツバサ・トラベル — Live Ops World (v4)</title>
 <style>
   :root{
     --bg-0:#05070d; --bg-1:#0a0f1c; --bg-2:#111a2e;
@@ -937,21 +937,262 @@
     .stage{inset:64px 0 200px 0}
     .timeline{left:14px; right:14px}
   }
+
+  /* ============================================================
+     V4 :: FRAMEBREAK — 1画面＝1立体世界
+     UIを世界外の額縁として並置するのを止め、
+     全ての情報オブジェクトを空間内に浮かべる。
+  ============================================================ */
+
+  /* 1. ヘッダ・KPIバー・右カラム・パネル枠を「世界の外」から解体 */
+  body{overflow:hidden}
+  header{
+    position:fixed; top:0; left:0; right:0; height:auto; z-index:60;
+    background:transparent; border-bottom:0; backdrop-filter:none;
+    padding:10px 22px;
+    grid-template-columns:auto 1fr auto;
+    gap:24px; align-items:start;
+    pointer-events:none;
+  }
+  header > *{pointer-events:auto}
+  header .brand{
+    background:rgba(6,10,20,.55); border:1px solid rgba(63,240,255,.25);
+    padding:8px 14px; border-radius:32px; backdrop-filter:blur(14px);
+    box-shadow:0 4px 24px rgba(0,0,0,.4), 0 0 20px rgba(63,240,255,.08);
+    transform:perspective(600px) rotateX(4deg);
+  }
+  header .tabs{
+    background:rgba(6,10,20,.55); border:1px solid rgba(63,240,255,.15);
+    border-radius:40px; padding:4px; backdrop-filter:blur(14px);
+    box-shadow:0 4px 24px rgba(0,0,0,.4);
+    justify-self:center; margin-top:32px;
+    transform:perspective(600px) rotateX(3deg);
+  }
+  header .header-right{
+    justify-self:end; gap:8px;
+    display:flex; flex-direction:column; align-items:flex-end;
+  }
+  header .header-right > *{
+    background:rgba(6,10,20,.55); border:1px solid rgba(63,240,255,.15);
+    padding:6px 14px; border-radius:20px; backdrop-filter:blur(14px);
+    font-size:11px; letter-spacing:.08em;
+    box-shadow:0 2px 12px rgba(0,0,0,.4);
+    transform:perspective(600px) rotateX(4deg) rotateY(-2deg);
+  }
+
+  /* 2. Stage は viewport 全体を占有、右カラム廃止 */
+  .stage{position:fixed; inset:0; padding:0; gap:0; display:block; z-index:1}
+  .view-office.active{display:block; grid-template-columns:none}
+  .office-panel{border:0; background:transparent; border-radius:0; overflow:visible; height:100vh}
+  .office-panel::before{display:none}
+  .office-panel .panel-head{
+    position:absolute; top:80px; left:24px; z-index:5;
+    background:rgba(6,10,20,.55); border:1px solid rgba(63,240,255,.25); border-radius:20px;
+    padding:8px 16px; backdrop-filter:blur(14px);
+    transform:perspective(600px) rotateX(5deg) rotateY(3deg);
+    box-shadow:0 4px 24px rgba(0,0,0,.4);
+  }
+  .office-scene{
+    position:fixed !important; inset:0 !important;
+    perspective:2200px; perspective-origin:50% 40%;
+  }
+
+  /* 3. Floor scale/position: 100vh に収まるよう再配置 */
+  .office-scene{
+    --cam-scale:.82; --cam-x:0px; --cam-y:0px; --cam-rx:56deg; --cam-rz:-38deg;
+  }
+  .floor{
+    top:52%; /* 少し上寄せて下切れ回避 */
+  }
+
+  /* 4. 右カラム(feed)は 世界の中に浮く"活動ホロログ"へ */
+  .view-office aside.panel.feed{
+    position:fixed; right:22px; bottom:22px; top:auto; z-index:30;
+    width:320px; max-height:38vh;
+    background:rgba(6,10,20,.55); border:1px solid rgba(63,240,255,.22); border-radius:16px;
+    backdrop-filter:blur(14px);
+    box-shadow:0 6px 30px rgba(0,0,0,.5), 0 0 30px rgba(63,240,255,.05);
+    transform:perspective(700px) rotateX(3deg) rotateY(-4deg);
+    display:flex; flex-direction:column; overflow:hidden;
+    transition:transform .3s ease, opacity .3s ease;
+  }
+  .view-office aside.panel.feed:hover{transform:perspective(700px) rotateX(0) rotateY(0)}
+  .view-office aside.panel.feed .panel-head{background:transparent; border-bottom:1px solid rgba(63,240,255,.15)}
+  .view-office aside.panel.feed .feed{flex:1; overflow-y:auto; padding:8px 12px; max-height:32vh}
+  .view-office aside.panel.feed .feed-item{
+    background:rgba(10,14,26,.4); margin-bottom:6px; padding:8px 10px; border-radius:8px;
+    border-left:2px solid var(--accent, var(--cy)); font-size:11px;
+  }
+
+  /* 5. KPI-BARを完全に世界内オブジェクトへ:
+        底面バーは消し、各部屋の"上"にKPI光柱＋数字を立てる          */
+  .kpi-bar{display:none}
+  .kpi-pillars{
+    position:absolute; inset:0; pointer-events:none; z-index:3;
+    perspective:1600px; perspective-origin:50% 45%;
+  }
+  .kpi-pillar{
+    position:absolute;
+    transform-origin:50% 100%;
+    transform:translate(-50%, -100%) rotateX(-58deg) rotateZ(38deg);
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    pointer-events:auto;
+    transform-style:preserve-3d;
+  }
+  .kpi-pillar .pil-bar{
+    width:4px; height:0px; background:linear-gradient(180deg, transparent, var(--kpc, var(--cy)));
+    box-shadow:0 0 12px var(--kpc, var(--cy)), 0 0 22px var(--kpc, var(--cy));
+    animation:pil-grow 1.6s ease-out forwards;
+    border-radius:4px;
+  }
+  @keyframes pil-grow{
+    0%  {height:0}
+    100%{height:var(--pil-h, 120px)}
+  }
+  .kpi-pillar .pil-badge{
+    background:rgba(6,10,20,.85); border:1.5px solid var(--kpc, var(--cy));
+    padding:6px 12px; border-radius:20px;
+    box-shadow:0 0 18px rgba(0,0,0,.5), 0 0 24px var(--kpc-glow, rgba(63,240,255,.4));
+    display:flex; flex-direction:column; align-items:center;
+    animation:pil-float 3.5s ease-in-out infinite alternate;
+    backdrop-filter:blur(10px);
+    min-width:78px;
+  }
+  @keyframes pil-float{
+    0%  {transform:translateY(0)}
+    100%{transform:translateY(-4px)}
+  }
+  .kpi-pillar .pil-lbl{font-size:8.5px; letter-spacing:.22em; color:var(--dim); font-weight:700}
+  .kpi-pillar .pil-val{
+    font-family:"JetBrains Mono",monospace; font-weight:800;
+    color:var(--kpc, var(--cy)); font-size:17px;
+    text-shadow:0 0 10px var(--kpc, var(--cy));
+    letter-spacing:.02em;
+  }
+  .kpi-pillar .pil-sub{font-size:9px; color:var(--dim); letter-spacing:.05em; margin-top:1px}
+  .kpi-pillar .pil-ring{
+    position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+    width:32px; height:8px; border-radius:50%;
+    background:radial-gradient(ellipse, var(--kpc, var(--cy)) 10%, transparent 70%);
+    filter:blur(3px); opacity:.85;
+    animation:ringpulse 1.8s ease-in-out infinite;
+  }
+
+  /* 6. 空中 AR サイン (時計・天気・タブ・ロゴ) を世界の中に */
+  .world-sign{
+    position:absolute; z-index:6; pointer-events:none;
+    background:rgba(6,10,20,.42); border:1px solid rgba(63,240,255,.28);
+    padding:8px 14px; border-radius:24px; backdrop-filter:blur(14px);
+    color:var(--text); font-size:12px; letter-spacing:.08em; font-weight:600;
+    box-shadow:0 4px 20px rgba(0,0,0,.4), 0 0 24px rgba(63,240,255,.08);
+    animation:pil-float 4s ease-in-out infinite alternate;
+  }
+  .world-sign.brand{
+    top:88px; left:32px;
+    transform:perspective(600px) rotateX(6deg) rotateY(4deg);
+    border-color:rgba(255,207,92,.4);
+    box-shadow:0 4px 20px rgba(0,0,0,.4), 0 0 30px rgba(255,207,92,.12);
+    font-size:15px; font-weight:800; letter-spacing:.06em;
+    color:var(--gd); text-shadow:0 0 10px rgba(255,207,92,.5);
+    padding:10px 18px;
+  }
+  .world-sign.brand small{color:var(--dim); font-weight:500; letter-spacing:.14em; font-size:9px; display:block; margin-top:2px}
+  .world-sign.weather{
+    top:100px; right:32px;
+    transform:perspective(600px) rotateX(6deg) rotateY(-4deg);
+    color:var(--cy);
+  }
+  .world-sign.clock{
+    top:140px; right:32px;
+    transform:perspective(600px) rotateX(6deg) rotateY(-4deg);
+    font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--gd);
+    text-shadow:0 0 8px rgba(255,207,92,.4);
+  }
+  .world-sign.status{
+    top:180px; right:32px;
+    transform:perspective(600px) rotateX(6deg) rotateY(-4deg);
+    font-size:10px; color:var(--gr); letter-spacing:.16em;
+  }
+  .world-sign.status .dot{width:6px; height:6px; border-radius:50%; background:var(--gr); box-shadow:0 0 10px var(--gr); display:inline-block; margin-right:6px; animation:pulse 1.4s infinite}
+  .world-sign.tabs-hud{
+    top:56px; left:50%; transform:translateX(-50%) perspective(600px) rotateX(5deg);
+    padding:6px; display:flex; gap:2px; background:rgba(6,10,20,.6);
+    pointer-events:auto; border-radius:40px;
+  }
+  .world-sign.tabs-hud .tab{
+    background:transparent; border:0; color:var(--dim); padding:8px 18px;
+    border-radius:32px; font-weight:700; letter-spacing:.08em; font-size:11px; cursor:pointer; transition:.2s;
+  }
+  .world-sign.tabs-hud .tab:hover{color:var(--cy)}
+  .world-sign.tabs-hud .tab.active{
+    background:rgba(63,240,255,.15); color:var(--cy);
+    box-shadow:0 0 12px rgba(63,240,255,.25), inset 0 0 0 1px rgba(63,240,255,.3);
+    text-shadow:0 0 6px rgba(63,240,255,.6);
+  }
+  .world-sign.speedbar{
+    top:200px; left:50%; transform:translateX(-50%) perspective(600px) rotateX(4deg);
+    padding:5px; display:flex; gap:2px; pointer-events:auto;
+  }
+
+  /* 7. Timeline は世界の底に一体化 */
+  .timeline{
+    top:auto !important; bottom:20px !important;
+    left:24px; right:380px;
+    background:rgba(6,10,20,.6); border:1px solid rgba(63,240,255,.25);
+    transform:perspective(700px) rotateX(-3deg);
+    box-shadow:0 6px 24px rgba(0,0,0,.5), 0 0 30px rgba(63,240,255,.06);
+    z-index:35;
+  }
+  .cam-hint{
+    top:auto !important; bottom:82px !important; right:380px; left:auto !important;
+    transform:none !important;
+    background:rgba(6,10,20,.6); padding:6px 12px; border-radius:14px;
+    border:1px solid rgba(63,240,255,.2); font-size:10px;
+  }
+
+  /* 8. デフォルトのtabsは隠す(HUD側で使う) */
+  header .tabs{display:none}
+  /* Header brand/right も隠す (world-sign側が代替する) */
+  header .brand, header .header-right{display:none}
+
+  /* 9. 元のkeyframes:float でfloorが揺れると視覚がブレるので抑制 */
+  .floor{animation:none}
+
+  @media (max-width:1180px){
+    .timeline{right:24px}
+    .view-office aside.panel.feed{display:none}
+    .cam-hint{right:24px}
+  }
 </style>
 </head>
 <body>
 
 <div class="version-banner">
-  <span class="cur">V3</span>
-  <span style="color:var(--dim); margin:0 4px">｜3周目</span>
-  <span style="color:var(--text); font-weight:600">時間軸 × カメラズーム × タスクフロー</span>
+  <span class="cur">V4</span>
+  <span style="color:var(--dim); margin:0 4px">｜4周目</span>
+  <span style="color:var(--text); font-weight:600">フレーム破壊：1画面＝1立体世界</span>
   <span style="color:var(--dim); margin:0 10px">｜進化を切替：</span>
   <a class="vw" href="20260829_ai_travel_company_demo_v1.html">V1</a>
   <a class="vw" href="20260829_ai_travel_company_demo_v2.html">V2</a>
-  <a class="vw cur" href="20260829_ai_travel_company_demo_v3.html">V3</a>
-  <a class="vw" href="20260829_ai_travel_company_demo_v4.html">V4</a>
+  <a class="vw" href="20260829_ai_travel_company_demo_v3.html">V3</a>
+  <a class="vw cur" href="20260829_ai_travel_company_demo_v4.html">V4</a>
   <a class="vw" href="20260829_ai_travel_company_demo.html">V5・AI社長シミュ</a>
 </div>
+
+<!-- ============= V4 :: 空中AR サイン群 (フレーム破壊) ============= -->
+<div class="world-sign brand">
+  AI ツバサ・トラベル
+  <small>LIVE OPS WORLD</small>
+</div>
+<div class="world-sign weather" id="ws-weather">神戸 <b>28°C</b> 晴／欠航なし</div>
+<div class="world-sign clock" id="ws-clock">00:00:00</div>
+<div class="world-sign status"><span class="dot"></span>SYSTEM ONLINE · 60 FPS · 42 ms</div>
+<nav class="world-sign tabs-hud">
+  <button class="tab active" data-view="office">全社ビュー</button>
+  <button class="tab" data-view="tasks">タスクボード</button>
+  <button class="tab" data-view="autocall">AUTOCALL</button>
+  <button class="tab" data-view="kpi">KPI詳細</button>
+</nav>
 
 <header>
   <div class="brand">
@@ -1159,6 +1400,56 @@
             </defs>
             <g id="arc-layer"></g>
           </svg>
+
+          <!-- ============ V4 :: KPI 光柱ホログラム ============ -->
+          <div class="kpi-pillars" id="kpi-pillars">
+            <div class="kpi-pillar" style="left:730px; top:60px; --kpc:#ffcf5c; --kpc-glow:rgba(255,207,92,.4)">
+              <div class="pil-badge">
+                <span class="pil-lbl">REVENUE</span>
+                <span class="pil-val" id="pil-rev">¥ 3.22M</span>
+                <span class="pil-sub" id="pil-rev-sub">+18.4% vs 昨日</span>
+              </div>
+              <div class="pil-bar" style="--pil-h:120px"></div>
+              <div class="pil-ring"></div>
+            </div>
+            <div class="kpi-pillar" style="left:260px; top:60px; --kpc:#3ff0ff; --kpc-glow:rgba(63,240,255,.4)">
+              <div class="pil-badge">
+                <span class="pil-lbl">BOOKINGS</span>
+                <span class="pil-val" id="pil-book">43</span>
+                <span class="pil-sub">件・受注中</span>
+              </div>
+              <div class="pil-bar" style="--pil-h:100px"></div>
+              <div class="pil-ring"></div>
+            </div>
+            <div class="kpi-pillar" style="left:210px; top:360px; --kpc:#ff4dc9; --kpc-glow:rgba(255,77,201,.4)">
+              <div class="pil-badge">
+                <span class="pil-lbl">COMPLETE</span>
+                <span class="pil-val" id="pil-done">96.6%</span>
+                <span class="pil-sub">仕訳・請求 自動</span>
+              </div>
+              <div class="pil-bar" style="--pil-h:110px"></div>
+              <div class="pil-ring"></div>
+            </div>
+            <div class="kpi-pillar" style="left:680px; top:360px; --kpc:#6cff9a; --kpc-glow:rgba(108,255,154,.4)">
+              <div class="pil-badge">
+                <span class="pil-lbl">AUTOCALL</span>
+                <span class="pil-val" id="pil-call">142</span>
+                <span class="pil-sub">件・応答率 68%</span>
+              </div>
+              <div class="pil-bar" style="--pil-h:130px"></div>
+              <div class="pil-ring"></div>
+            </div>
+            <!-- 追加: NPS (中央上空) -->
+            <div class="kpi-pillar" style="left:480px; top:180px; --kpc:#a06bff; --kpc-glow:rgba(160,107,255,.4)">
+              <div class="pil-badge">
+                <span class="pil-lbl">NPS</span>
+                <span class="pil-val" id="pil-nps">72</span>
+                <span class="pil-sub">顧客推奨度</span>
+              </div>
+              <div class="pil-bar" style="--pil-h:150px"></div>
+              <div class="pil-ring"></div>
+            </div>
+          </div>
 
           <!-- ================ 社長室 ================ -->
           <div class="room r-ceo">
@@ -1721,10 +2012,12 @@
 /* ================= View switching ================= */
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    const view = t.dataset.view;
+    document.querySelectorAll('.tab').forEach(x=>{
+      x.classList.toggle('active', x.dataset.view === view);
+    });
     document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    document.querySelector('.view-'+t.dataset.view).classList.add('active');
+    document.querySelector('.view-'+view).classList.add('active');
   });
 });
 
@@ -1732,8 +2025,9 @@ document.querySelectorAll('.tab').forEach(t=>{
 function tickClock(){
   const now = new Date();
   const p = n => String(n).padStart(2,'0');
-  document.getElementById('clock').textContent =
-    `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+  const t = `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+  const c1 = document.getElementById('clock'); if(c1) c1.textContent = t;
+  const c2 = document.getElementById('ws-clock'); if(c2) c2.textContent = t;
 }
 setInterval(tickClock, 1000); tickClock();
 
@@ -2303,6 +2597,13 @@ try { clearInterval(roamHandle); } catch(_) {}
     if(kb) kb.textContent = bookNow.toLocaleString();
     if(kr) kr.innerHTML = "¥ " + Math.floor(revNow).toLocaleString();
     if(kc) kc.textContent = callNow.toLocaleString();
+    // V4: KPI 光柱の数値
+    const pilRev = document.getElementById('pil-rev');
+    if(pilRev) pilRev.textContent = "¥ " + (revNow/1e6).toFixed(2) + "M";
+    const pilBook = document.getElementById('pil-book');
+    if(pilBook) pilBook.textContent = bookNow.toLocaleString();
+    const pilCall = document.getElementById('pil-call');
+    if(pilCall) pilCall.textContent = callNow.toLocaleString();
     // Room detail rows also reflect
     const s1 = document.getElementById('rd-sales-1'); if(s1) s1.textContent = callNow+'件';
     const s2 = document.getElementById('rd-sales-2'); if(s2) s2.textContent = bookNow+'件 · ¥'+ (revNow/1e6).toFixed(2) +'M';

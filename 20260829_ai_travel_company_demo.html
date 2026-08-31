@@ -1163,19 +1163,341 @@
     .view-office aside.panel.feed{display:none}
     .cam-hint{right:24px}
   }
+
+  /* ============================================================
+     V5 :: AI社長シミュ・1日モード (軽ゲーム)
+     プレイヤー=社長。8→21時の進行中に7つの意思決定が発生。
+     選択でRev/NPS/幸福が増減、21:00に称号スコア表示。
+     ============================================================ */
+  #v5-start-screen{
+    position:fixed; inset:0; z-index:200;
+    display:grid; place-items:center;
+    background:radial-gradient(ellipse at center, rgba(6,10,25,.85), rgba(2,4,10,.96));
+    backdrop-filter:blur(6px);
+    transition:opacity .5s ease, visibility .5s ease;
+  }
+  #v5-start-screen.hidden{opacity:0; visibility:hidden; pointer-events:none}
+  .v5-start-card{
+    max-width:520px; padding:38px 40px 34px;
+    background:linear-gradient(180deg, rgba(20,28,52,.95), rgba(10,15,28,.88));
+    border:1px solid rgba(255,207,92,.35);
+    border-radius:22px;
+    box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 40px rgba(255,207,92,.15);
+    text-align:center;
+    color:#e6edff;
+  }
+  .v5-start-card .kicker{
+    display:inline-block;
+    font-size:10px; letter-spacing:.32em; font-weight:800;
+    color:#ffcf5c;
+    padding:5px 12px; border:1px solid rgba(255,207,92,.5); border-radius:99px;
+    margin-bottom:14px;
+  }
+  .v5-start-card h1{
+    font-size:26px; font-weight:800; letter-spacing:.06em; margin-bottom:10px;
+    background:linear-gradient(90deg, #ffcf5c, #ff4dc9, #3ff0ff);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .v5-start-card p{font-size:13px; line-height:1.85; color:#b5c3e0; margin-bottom:22px; letter-spacing:.03em}
+  .v5-start-card .rules{
+    text-align:left; font-size:12px; color:#8896b8;
+    background:rgba(0,0,0,.28); border:1px solid #1e2a44;
+    border-radius:10px; padding:12px 14px; margin-bottom:22px; line-height:1.85;
+  }
+  .v5-start-card .rules b{color:#e6edff}
+  .v5-btn{
+    display:inline-block; cursor:pointer;
+    padding:14px 32px; font-size:14px; font-weight:800; letter-spacing:.12em;
+    color:#0a0f1c;
+    background:linear-gradient(135deg, #ffcf5c, #ff9a5c);
+    border:none; border-radius:99px;
+    box-shadow:0 8px 24px rgba(255,180,90,.4), inset 0 1px 0 rgba(255,255,255,.5);
+    transition:.2s;
+  }
+  .v5-btn:hover{transform:translateY(-2px); box-shadow:0 12px 32px rgba(255,180,90,.55)}
+  .v5-btn.ghost{
+    background:transparent; color:#e6edff;
+    border:1px solid rgba(230,237,255,.35);
+    box-shadow:none;
+  }
+  .v5-btn.ghost:hover{border-color:#3ff0ff; color:#3ff0ff}
+
+  /* 経営ボード (HUD) */
+  #v5-hud{
+    position:fixed; top:74px; left:22px; z-index:70;
+    display:flex; flex-direction:column; gap:8px;
+    padding:12px 14px;
+    background:linear-gradient(180deg, rgba(20,28,52,.85), rgba(10,15,28,.72));
+    border:1px solid rgba(63,240,255,.28);
+    border-radius:14px;
+    backdrop-filter:blur(8px);
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+    min-width:210px;
+    opacity:0; visibility:hidden; transform:translateY(-8px);
+    transition:.4s;
+  }
+  #v5-hud.active{opacity:1; visibility:visible; transform:translateY(0)}
+  #v5-hud .hud-title{
+    font-size:9px; letter-spacing:.28em; color:#ffcf5c; font-weight:800; margin-bottom:2px;
+  }
+  #v5-hud .hud-sub{font-size:10px; color:#8896b8; letter-spacing:.06em; margin-bottom:6px}
+  #v5-hud .meter{display:flex; align-items:center; gap:8px}
+  #v5-hud .meter-lbl{
+    font-size:10px; letter-spacing:.15em; font-weight:700; width:52px;
+  }
+  #v5-hud .meter-lbl.rev{color:#ffcf5c}
+  #v5-hud .meter-lbl.nps{color:#a06bff}
+  #v5-hud .meter-lbl.hap{color:#6cff9a}
+  #v5-hud .meter-track{
+    flex:1; height:8px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden;
+    position:relative;
+  }
+  #v5-hud .meter-fill{
+    position:absolute; left:50%; top:0; bottom:0;
+    background:linear-gradient(90deg, var(--mc, #3ff0ff), var(--mc2, #3ff0ff));
+    transition:width .4s ease, left .4s ease;
+    box-shadow:0 0 8px var(--mc);
+  }
+  #v5-hud .meter-val{
+    font-family:"JetBrains Mono", monospace;
+    font-size:11px; font-weight:800; color:#e6edff; width:36px; text-align:right;
+  }
+  #v5-hud .decision-progress{
+    margin-top:6px; font-size:10px; color:#8896b8; letter-spacing:.08em;
+    display:flex; gap:3px;
+  }
+  #v5-hud .dot{width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25)}
+  #v5-hud .dot.done{background:#3ff0ff; box-shadow:0 0 6px rgba(63,240,255,.8); border-color:#3ff0ff}
+  #v5-hud .dot.now{background:#ffcf5c; box-shadow:0 0 8px rgba(255,207,92,.9); border-color:#ffcf5c; animation:v5-blink 1s infinite}
+  @keyframes v5-blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* 意思決定モーダル */
+  #v5-decision{
+    position:fixed; inset:0; z-index:180;
+    display:none; place-items:center;
+    background:rgba(4,6,15,.72);
+    backdrop-filter:blur(4px);
+  }
+  #v5-decision.active{display:grid}
+  .v5-dec-card{
+    max-width:560px; width:calc(100% - 40px);
+    padding:26px 28px 24px;
+    background:linear-gradient(180deg, rgba(24,32,58,.98), rgba(12,18,34,.95));
+    border:1px solid rgba(63,240,255,.4);
+    border-radius:18px;
+    box-shadow:0 30px 70px rgba(0,0,0,.7), 0 0 40px rgba(63,240,255,.18);
+    color:#e6edff;
+    animation:v5-pop .35s cubic-bezier(.2,.9,.3,1.1);
+  }
+  @keyframes v5-pop{from{transform:scale(.9); opacity:0}to{transform:scale(1); opacity:1}}
+  .v5-dec-card .dec-time{
+    display:inline-block; font-family:"JetBrains Mono", monospace;
+    font-size:11px; font-weight:800; letter-spacing:.14em; color:#ffcf5c;
+    padding:3px 10px; border:1px solid rgba(255,207,92,.5); border-radius:99px;
+    margin-bottom:8px;
+  }
+  .v5-dec-card .dec-scene{font-size:11px; color:#8896b8; letter-spacing:.14em; margin-bottom:6px}
+  .v5-dec-card h2{font-size:20px; font-weight:800; margin-bottom:6px; letter-spacing:.03em}
+  .v5-dec-card .dec-quote{
+    font-size:12px; color:#b5c3e0; line-height:1.75; letter-spacing:.03em;
+    padding:10px 12px; background:rgba(0,0,0,.28); border-left:2px solid #3ff0ff;
+    border-radius:6px; margin-bottom:16px;
+  }
+  .v5-dec-card .dec-quote .who{color:#3ff0ff; font-weight:700; margin-right:6px}
+  .v5-dec-card .choices{display:flex; flex-direction:column; gap:8px}
+  .v5-choice{
+    text-align:left; padding:12px 14px; cursor:pointer;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:10px;
+    color:#e6edff;
+    transition:.18s;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .v5-choice:hover{
+    background:rgba(63,240,255,.08);
+    border-color:rgba(63,240,255,.55);
+    transform:translateX(3px);
+  }
+  .v5-choice .txt{font-size:13px; font-weight:600; line-height:1.5}
+  .v5-choice .deltas{
+    display:flex; gap:6px; flex-shrink:0;
+    font-family:"JetBrains Mono", monospace; font-size:10px; font-weight:800;
+  }
+  .v5-choice .d{padding:3px 6px; border-radius:4px; letter-spacing:.05em}
+  .v5-choice .d.rev{color:#ffcf5c; background:rgba(255,207,92,.12)}
+  .v5-choice .d.nps{color:#a06bff; background:rgba(160,107,255,.14)}
+  .v5-choice .d.hap{color:#6cff9a; background:rgba(108,255,154,.14)}
+
+  /* 選択後の浮遊バッジ */
+  .v5-toast{
+    position:fixed; top:50%; left:50%;
+    transform:translate(-50%, -50%) scale(.9);
+    z-index:170;
+    padding:18px 26px;
+    background:linear-gradient(135deg, rgba(24,32,58,.98), rgba(12,18,34,.95));
+    border:1px solid rgba(255,207,92,.5);
+    border-radius:14px;
+    box-shadow:0 20px 50px rgba(0,0,0,.6), 0 0 30px rgba(255,207,92,.25);
+    color:#e6edff;
+    text-align:center;
+    opacity:0;
+    transition:.5s cubic-bezier(.2,.9,.3,1.1);
+    pointer-events:none;
+  }
+  .v5-toast.show{opacity:1; transform:translate(-50%, -50%) scale(1)}
+  .v5-toast .decided{font-size:10px; letter-spacing:.28em; color:#ffcf5c; font-weight:800; margin-bottom:4px}
+  .v5-toast .picked{font-size:14px; font-weight:800; margin-bottom:8px}
+  .v5-toast .diffs{display:flex; gap:10px; justify-content:center; font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:800}
+  .v5-toast .diffs .d.rev{color:#ffcf5c}
+  .v5-toast .diffs .d.nps{color:#a06bff}
+  .v5-toast .diffs .d.hap{color:#6cff9a}
+  .v5-toast .diffs .d.zero{opacity:.5}
+
+  /* 最終スコア画面 */
+  #v5-final{
+    position:fixed; inset:0; z-index:210;
+    display:none; place-items:center;
+    background:radial-gradient(ellipse at center, rgba(6,10,25,.88), rgba(2,4,10,.98));
+    backdrop-filter:blur(8px);
+  }
+  #v5-final.active{display:grid}
+  .v5-final-card{
+    max-width:600px; width:calc(100% - 40px);
+    padding:38px 40px 32px;
+    background:linear-gradient(180deg, rgba(20,28,52,.96), rgba(10,15,28,.92));
+    border:1px solid rgba(255,207,92,.5);
+    border-radius:22px;
+    box-shadow:0 30px 80px rgba(0,0,0,.7), 0 0 60px rgba(255,207,92,.22);
+    color:#e6edff;
+    text-align:center;
+    animation:v5-pop .5s cubic-bezier(.2,.9,.3,1.1);
+  }
+  .v5-final-card .final-kicker{
+    display:inline-block; font-size:10px; letter-spacing:.32em; font-weight:800;
+    color:#ffcf5c; padding:5px 14px;
+    border:1px solid rgba(255,207,92,.5); border-radius:99px; margin-bottom:16px;
+  }
+  .v5-final-card .title-name{
+    font-size:36px; font-weight:800; letter-spacing:.08em; margin-bottom:6px;
+    background:linear-gradient(90deg, #ffcf5c, #ff4dc9, #3ff0ff);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .v5-final-card .title-caption{font-size:13px; color:#b5c3e0; margin-bottom:24px; letter-spacing:.06em; line-height:1.7}
+  .v5-final-card .final-scores{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;
+  }
+  .v5-final-card .fs-item{
+    padding:14px 10px; background:rgba(0,0,0,.28); border:1px solid #1e2a44; border-radius:12px;
+  }
+  .v5-final-card .fs-lbl{font-size:9px; letter-spacing:.24em; font-weight:800; margin-bottom:6px}
+  .v5-final-card .fs-lbl.rev{color:#ffcf5c}
+  .v5-final-card .fs-lbl.nps{color:#a06bff}
+  .v5-final-card .fs-lbl.hap{color:#6cff9a}
+  .v5-final-card .fs-val{font-family:"JetBrains Mono",monospace; font-size:24px; font-weight:800}
+  .v5-final-card .fs-val.rev{color:#ffcf5c}
+  .v5-final-card .fs-val.nps{color:#a06bff}
+  .v5-final-card .fs-val.hap{color:#6cff9a}
+  .v5-final-card .log-title{font-size:10px; letter-spacing:.24em; color:#8896b8; font-weight:800; margin-bottom:8px; text-align:left}
+  .v5-final-card .final-log{
+    text-align:left; font-size:11px; line-height:1.85; color:#b5c3e0;
+    background:rgba(0,0,0,.22); padding:10px 14px; border-radius:8px;
+    border:1px solid #1e2a44; margin-bottom:20px; max-height:170px; overflow:auto;
+  }
+  .v5-final-card .final-log .log-t{color:#ffcf5c; font-family:"JetBrains Mono",monospace; margin-right:6px}
+  .v5-final-card .final-actions{display:flex; gap:10px; justify-content:center}
 </style>
 </head>
 <body>
 
 <div class="version-banner">
-  <span class="cur">V4</span>
-  <span style="color:var(--dim); margin:0 4px">｜4周目</span>
-  <span style="color:var(--text); font-weight:600">フレーム破壊：1画面＝1立体世界</span>
+  <span class="cur">V5</span>
+  <span style="color:var(--dim); margin:0 4px">｜6周目</span>
+  <span style="color:var(--text); font-weight:600">AI社長シミュ：1日モード（軽ゲーム）</span>
   <span style="color:var(--dim); margin:0 10px">｜進化を切替：</span>
   <a class="vw" href="20260829_ai_travel_company_demo_v1.html">V1</a>
   <a class="vw" href="20260829_ai_travel_company_demo_v2.html">V2</a>
   <a class="vw" href="20260829_ai_travel_company_demo_v3.html">V3</a>
-  <a class="vw cur" href="20260829_ai_travel_company_demo.html">V4</a>
+  <a class="vw" href="20260829_ai_travel_company_demo_v4.html">V4</a>
+  <a class="vw cur" href="20260829_ai_travel_company_demo.html">V5</a>
+</div>
+
+<!-- ============= V5 :: AI社長シミュ・1日モード (軽ゲーム) ============= -->
+<div id="v5-start-screen">
+  <div class="v5-start-card">
+    <div class="kicker">V5 · GAME MODE</div>
+    <h1>AI社長シミュ・1日モード</h1>
+    <p>
+      あなたはツバサ・トラベルの社長。<br>
+      8:00から21:00まで、AI従業員3名が動く1日を体験します。<br>
+      要所で <b>7つの意思決定</b> が飛んできます。選択で <b>売上・NPS・幸福度</b> が動きます。
+    </p>
+    <div class="rules">
+      <b>操作</b>：意思決定モーダルから選ぶだけ<br>
+      <b>プレイ時間</b>：約1〜2分（時間軸は自動で進みます）<br>
+      <b>ゴール</b>：21:00に称号（名経営者／冷徹CEO／顧客ファースト／現場派／…）が確定
+    </div>
+    <button class="v5-btn" id="v5-start-btn">▶ 社長として1日を始める</button>
+    <button class="v5-btn ghost" id="v5-observe-btn" style="margin-left:10px">観測モードで開く</button>
+  </div>
+</div>
+
+<div id="v5-hud">
+  <div class="hud-title">経営ボード</div>
+  <div class="hud-sub"><span id="v5-hud-time">08:00</span> · <span id="v5-hud-phase">MORNING BRIEF</span></div>
+  <div class="meter">
+    <span class="meter-lbl rev">REV</span>
+    <div class="meter-track"><div class="meter-fill" id="v5-mfill-rev" style="--mc:#ffcf5c; --mc2:#ff9a5c; width:0%"></div></div>
+    <span class="meter-val" id="v5-mval-rev">+0</span>
+  </div>
+  <div class="meter">
+    <span class="meter-lbl nps">NPS</span>
+    <div class="meter-track"><div class="meter-fill" id="v5-mfill-nps" style="--mc:#a06bff; --mc2:#c8a5ff; width:0%"></div></div>
+    <span class="meter-val" id="v5-mval-nps">+0</span>
+  </div>
+  <div class="meter">
+    <span class="meter-lbl hap">幸福</span>
+    <div class="meter-track"><div class="meter-fill" id="v5-mfill-hap" style="--mc:#6cff9a; --mc2:#a5ffcc; width:0%"></div></div>
+    <span class="meter-val" id="v5-mval-hap">+0</span>
+  </div>
+  <div class="decision-progress" id="v5-dec-dots"></div>
+</div>
+
+<div id="v5-decision">
+  <div class="v5-dec-card">
+    <div class="dec-time" id="v5-dec-time">08:30</div>
+    <div class="dec-scene" id="v5-dec-scene">CEO OFFICE · 朝会</div>
+    <h2 id="v5-dec-title">今日の朝会テーマは？</h2>
+    <div class="dec-quote"><span class="who" id="v5-dec-who">神谷（PM AI）</span><span id="v5-dec-quote">今朝、社長の判断で1つ決めてほしいことがあります。</span></div>
+    <div class="choices" id="v5-dec-choices"></div>
+  </div>
+</div>
+
+<div class="v5-toast" id="v5-toast">
+  <div class="decided">DECIDED</div>
+  <div class="picked" id="v5-toast-picked"></div>
+  <div class="diffs" id="v5-toast-diffs"></div>
+</div>
+
+<div id="v5-final">
+  <div class="v5-final-card">
+    <div class="final-kicker">21:00 · AFTER HOURS · 本日の評価</div>
+    <div class="title-name" id="v5-final-title">名経営者</div>
+    <div class="title-caption" id="v5-final-caption">売上・顧客・現場、三方すべてを引き上げた1日。</div>
+    <div class="final-scores">
+      <div class="fs-item"><div class="fs-lbl rev">REVENUE</div><div class="fs-val rev" id="v5-final-rev">+0</div></div>
+      <div class="fs-item"><div class="fs-lbl nps">NPS</div><div class="fs-val nps" id="v5-final-nps">+0</div></div>
+      <div class="fs-item"><div class="fs-lbl hap">幸福度</div><div class="fs-val hap" id="v5-final-hap">+0</div></div>
+    </div>
+    <div class="log-title">本日の判断ログ</div>
+    <div class="final-log" id="v5-final-log"></div>
+    <div class="final-actions">
+      <button class="v5-btn" id="v5-restart-btn">▶ もう一度</button>
+      <button class="v5-btn ghost" id="v5-observe-btn2">観測モードに戻る</button>
+    </div>
+  </div>
 </div>
 
 <!-- ============= V4 :: 空中AR サイン群 (フレーム破壊) ============= -->
@@ -2517,6 +2839,18 @@ try { clearInterval(roamHandle); } catch(_) {}
   let speed = 3; // × factor
   const START = 8, END = 21;
 
+  // V5 game hook state — exposed to the game module
+  window.__timeAxis = {
+    paused: false,
+    gameMode: false,
+    hitEnd: false,
+    listeners: [],
+    getHour: () => vHour,
+    setHour: (h) => { vHour = h; },
+    setSpeed: (s) => { speed = s; },
+    onTick: (cb) => { window.__timeAxis.listeners.push(cb); }
+  };
+
   document.querySelectorAll('.tl-speed button').forEach(b=>{
     b.addEventListener('click', ()=>{
       document.querySelectorAll('.tl-speed button').forEach(x=>x.classList.remove('active'));
@@ -2629,10 +2963,27 @@ try { clearInterval(roamHandle); } catch(_) {}
   function loop(now){
     const dt = (now - lastFrame) / 1000; // seconds
     lastFrame = now;
-    // 1 real second = speed * (real minutes) of virtual time.
-    // Choose: 1 real sec = speed * 2 virtual minutes → speed 3 means 6 vmin/rsec (13h fits ~130 real sec)
-    vHour += (speed * 2 / 60) * dt;
-    if(vHour >= END) vHour = START; // loop back
+    const T = window.__timeAxis;
+    // V5: pause支援
+    if(!T.paused){
+      // 1 real second = speed * (real minutes) of virtual time.
+      // Choose: 1 real sec = speed * 2 virtual minutes → speed 3 means 6 vmin/rsec (13h fits ~130 real sec)
+      vHour += (speed * 2 / 60) * dt;
+    }
+    if(vHour >= END){
+      if(T.gameMode){
+        vHour = END;
+        if(!T.hitEnd){
+          T.hitEnd = true;
+          T.paused = true;
+          T.listeners.forEach(cb => { try{ cb(vHour, true); }catch(_){} });
+        }
+      } else {
+        vHour = START; // 通常モード: loop back
+      }
+    }
+    // V5: tick listeners
+    T.listeners.forEach(cb => { try{ cb(vHour, false); }catch(_){} });
     const s = sample(vHour);
     applySky(s);
 
@@ -2849,6 +3200,340 @@ try { clearInterval(roamHandle); } catch(_) {}
   setTimeout(tick, 1200);
 })();
 
+
+/* =========================================================
+   V5 :: AI社長シミュ・1日モード (軽ゲーム)
+========================================================= */
+(function CEOGame(){
+  const decisions = [
+    { at: 8.5, scene: 'CEO OFFICE · 朝会',
+      who: '神谷（PM AI）',
+      quote: '社長、朝会テーマを決めてください。今日の全体の動きが決まります。',
+      title: '今日の朝会テーマは？',
+      choices: [
+        { txt:'新規開拓に振り切る（AUTOCALL80件）', rev:+8, nps:0,  hap:-3, log:'新規開拓ドライブ' },
+        { txt:'既存顧客の深耕を徹底（電話5件＋提案書2本）', rev:+4, nps:+6, hap:+2, log:'既存深耕' },
+        { txt:'今日は各自の判断に任せる', rev:+2, nps:+2, hap:+4, log:'現場委任' }
+      ]},
+    { at: 10.0, scene: 'SALES FLOOR · 見積作成',
+      who: '星野（営業AI）',
+      quote: '京都秋パッケージ、競合が-12%出してきました。合わせますか？',
+      title: '京都秋パッケージ、価格戦略は？',
+      choices: [
+        { txt:'-15%まで下げて即決狙い', rev:+3, nps:+4, hap:-2, log:'値下げ即決' },
+        { txt:'据置（品質で押す）', rev:+6, nps:0,  hap:+1, log:'品質据置' },
+        { txt:'+5%プレミアム化', rev:+10,nps:-4, hap:+2, log:'プレミアム化' }
+      ]},
+    { at: 11.5, scene: 'MEETING ROOM · クレーム対応',
+      who: '白石（経理AI）',
+      quote: '昨日出発の団体様から苦情が入りました。ホテル対応の遅延です。',
+      title: 'クレーム対応、誰が動く？',
+      choices: [
+        { txt:'社長自ら電話で謝罪＋補償提示', rev:0,  nps:+8, hap:-4, log:'社長直接対応' },
+        { txt:'星野AIに謝罪＋次回割引提示を任せる', rev:+2, nps:+3, hap:+2, log:'星野AI対応' },
+        { txt:'まずはメールで一次回答', rev:0,  nps:-5, hap:+3, log:'メール一次回答' }
+      ]},
+    { at: 13.0, scene: 'CEO OFFICE · 午後の号令',
+      who: 'あなた（社長）',
+      quote: '昼を過ぎ、集中力の谷。午後の方針を定めます。',
+      title: '午後の全社の空気は？',
+      choices: [
+        { txt:'集中モード宣言（雑談禁止・タスク一点集中）', rev:+5, nps:0,  hap:-2, log:'集中モード' },
+        { txt:'各自ペース＋15時カフェタイム', rev:+2, nps:+2, hap:+5, log:'各自ペース' }
+      ]},
+    { at: 15.0, scene: 'AUTOCALL · 夕方前ラストスパート',
+      who: '神谷（PM AI）',
+      quote: '残り2時間、AUTOCALLの上限を決めましょう。',
+      title: 'AUTOCALL目標コール数は？',
+      choices: [
+        { txt:'80件・攻めきる', rev:+7, nps:-2, hap:-3, log:'80件攻め' },
+        { txt:'50件・応答率キープ', rev:+3, nps:+2, hap:+2, log:'50件維持' },
+        { txt:'30件・質重視', rev:+1, nps:+4, hap:+3, log:'30件質重視' }
+      ]},
+    { at: 17.0, scene: 'MEETING ROOM · 残業判断',
+      who: '星野（営業AI）',
+      quote: '見積10本、今日中に返しますか？明朝集合でも間に合います。',
+      title: '未処理の見積、どうする？',
+      choices: [
+        { txt:'今日中に完遂（残業）', rev:+6, nps:+3, hap:-6, log:'残業完遂' },
+        { txt:'明朝7時集合で処理', rev:+1, nps:-1, hap:+5, log:'明朝処理' }
+      ]},
+    { at: 19.0, scene: 'CEO OFFICE · 夜の投資判断',
+      who: '白石（経理AI）',
+      quote: '新CRMの月額¥8万、導入しますか？今なら初期費用ゼロキャンペーンです。',
+      title: '新CRMツール、導入する？',
+      choices: [
+        { txt:'即導入（明日から）', rev:+8, nps:+2, hap:-3, log:'CRM即導入' },
+        { txt:'3ヶ月試用のあと判断', rev:+3, nps:+1, hap:+1, log:'CRM試用' },
+        { txt:'今回は見送り', rev:0,  nps:0,  hap:+2, log:'CRM見送り' }
+      ]}
+  ];
+
+  const state = {
+    running: false,
+    fired: new Set(),
+    rev: 0, nps: 0, hap: 0,
+    log: []
+  };
+
+  // ---- DOM refs
+  const startScreen = document.getElementById('v5-start-screen');
+  const startBtn    = document.getElementById('v5-start-btn');
+  const observeBtn  = document.getElementById('v5-observe-btn');
+  const hud         = document.getElementById('v5-hud');
+  const hudTime     = document.getElementById('v5-hud-time');
+  const hudPhase    = document.getElementById('v5-hud-phase');
+  const mfillRev    = document.getElementById('v5-mfill-rev');
+  const mfillNps    = document.getElementById('v5-mfill-nps');
+  const mfillHap    = document.getElementById('v5-mfill-hap');
+  const mvalRev     = document.getElementById('v5-mval-rev');
+  const mvalNps     = document.getElementById('v5-mval-nps');
+  const mvalHap     = document.getElementById('v5-mval-hap');
+  const decDots     = document.getElementById('v5-dec-dots');
+  const decModal    = document.getElementById('v5-decision');
+  const decTime     = document.getElementById('v5-dec-time');
+  const decScene    = document.getElementById('v5-dec-scene');
+  const decTitle    = document.getElementById('v5-dec-title');
+  const decWho      = document.getElementById('v5-dec-who');
+  const decQuote    = document.getElementById('v5-dec-quote');
+  const decChoices  = document.getElementById('v5-dec-choices');
+  const toast       = document.getElementById('v5-toast');
+  const toastPicked = document.getElementById('v5-toast-picked');
+  const toastDiffs  = document.getElementById('v5-toast-diffs');
+  const finalScreen = document.getElementById('v5-final');
+  const finalTitle  = document.getElementById('v5-final-title');
+  const finalCap    = document.getElementById('v5-final-caption');
+  const finalRev    = document.getElementById('v5-final-rev');
+  const finalNps    = document.getElementById('v5-final-nps');
+  const finalHap    = document.getElementById('v5-final-hap');
+  const finalLog    = document.getElementById('v5-final-log');
+  const restartBtn  = document.getElementById('v5-restart-btn');
+  const observeBtn2 = document.getElementById('v5-observe-btn2');
+  const phaseEl     = document.getElementById('tl-phase');
+  const clockEl     = document.getElementById('tl-clock');
+
+  function buildDots(){
+    decDots.innerHTML = '';
+    decisions.forEach((d,i)=>{
+      const el = document.createElement('span');
+      el.className = 'dot';
+      el.title = 'Decision ' + (i+1);
+      decDots.appendChild(el);
+    });
+  }
+
+  function updateDots(){
+    const els = decDots.querySelectorAll('.dot');
+    let nextIdx = -1;
+    for(let i=0;i<decisions.length;i++){ if(!state.fired.has(i)){ nextIdx = i; break; } }
+    els.forEach((el,i)=>{
+      el.className = 'dot';
+      if(state.fired.has(i)) el.classList.add('done');
+      else if(i === nextIdx) el.classList.add('now');
+    });
+  }
+
+  function renderHUD(){
+    // 各メーターは -30〜+40 で中央固定。中央より右=正、左=負。
+    const scale = (v) => {
+      const clamped = Math.max(-30, Math.min(40, v));
+      const w = Math.abs(clamped) / 40 * 50; // 最大50% (halfBar)
+      const left = clamped >= 0 ? 50 : 50 - w;
+      return {w, left};
+    };
+    const r = scale(state.rev), n = scale(state.nps), h = scale(state.hap);
+    mfillRev.style.width = r.w + '%'; mfillRev.style.left = r.left + '%';
+    mfillNps.style.width = n.w + '%'; mfillNps.style.left = n.left + '%';
+    mfillHap.style.width = h.w + '%'; mfillHap.style.left = h.left + '%';
+    mvalRev.textContent = (state.rev >= 0 ? '+' : '') + state.rev;
+    mvalNps.textContent = (state.nps >= 0 ? '+' : '') + state.nps;
+    mvalHap.textContent = (state.hap >= 0 ? '+' : '') + state.hap;
+  }
+
+  function showDecision(idx){
+    const d = decisions[idx];
+    const T = window.__timeAxis;
+    T.paused = true;
+    // clock表示を該当時刻に強制
+    T.setHour(d.at);
+    // 現在時刻/フェーズを揃える
+    const hh = Math.floor(d.at), mm = Math.floor((d.at-hh)*60);
+    if(clockEl) clockEl.textContent = String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    decTime.textContent = String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    decScene.textContent = d.scene;
+    decTitle.textContent = d.title;
+    decWho.textContent = d.who;
+    decQuote.textContent = d.quote;
+    decChoices.innerHTML = '';
+    d.choices.forEach((c,ci)=>{
+      const btn = document.createElement('div');
+      btn.className = 'v5-choice';
+      btn.tabIndex = 0;
+      const dRev = c.rev===0 ? '±0' : (c.rev>0?'+'+c.rev:c.rev);
+      const dNps = c.nps===0 ? '±0' : (c.nps>0?'+'+c.nps:c.nps);
+      const dHap = c.hap===0 ? '±0' : (c.hap>0?'+'+c.hap:c.hap);
+      btn.innerHTML = '<div class="txt">'+ escapeHTML(c.txt) +'</div>'+
+        '<div class="deltas">'+
+          '<span class="d rev">Rev '+ dRev +'</span>'+
+          '<span class="d nps">NPS '+ dNps +'</span>'+
+          '<span class="d hap">幸福 '+ dHap +'</span>'+
+        '</div>';
+      btn.addEventListener('click', ()=> commitChoice(idx, ci));
+      decChoices.appendChild(btn);
+    });
+    decModal.classList.add('active');
+  }
+
+  function commitChoice(idx, ci){
+    const d = decisions[idx];
+    const c = d.choices[ci];
+    state.rev += c.rev; state.nps += c.nps; state.hap += c.hap;
+    state.fired.add(idx);
+    state.log.push({ t: fmtT(d.at), pick: c.txt, log: c.log, r:c.rev, n:c.nps, h:c.hap });
+    decModal.classList.remove('active');
+    renderHUD();
+    updateDots();
+    showToast(c);
+    // 少し待ってから時刻を進める
+    setTimeout(()=>{
+      const T = window.__timeAxis;
+      T.paused = false;
+    }, 900);
+  }
+
+  function fmtT(h){ const hh=Math.floor(h), mm=Math.floor((h-hh)*60); return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }
+
+  function showToast(c){
+    const dRev = c.rev===0 ? '±0' : (c.rev>0?'+'+c.rev:c.rev);
+    const dNps = c.nps===0 ? '±0' : (c.nps>0?'+'+c.nps:c.nps);
+    const dHap = c.hap===0 ? '±0' : (c.hap>0?'+'+c.hap:c.hap);
+    toastPicked.textContent = c.txt;
+    toastDiffs.innerHTML =
+      '<span class="d rev '+ (c.rev===0?'zero':'') +'">Rev '+ dRev +'</span>'+
+      '<span class="d nps '+ (c.nps===0?'zero':'') +'">NPS '+ dNps +'</span>'+
+      '<span class="d hap '+ (c.hap===0?'zero':'') +'">幸福 '+ dHap +'</span>';
+    toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'), 1600);
+  }
+
+  function judgeTitle(){
+    const {rev, nps, hap} = state;
+    const arr = [{k:'rev',v:rev,name:'売上'}, {k:'nps',v:nps,name:'顧客'}, {k:'hap',v:hap,name:'現場'}];
+    arr.sort((a,b)=>b.v-a.v);
+    const top = arr[0], mid = arr[1], bot = arr[2];
+    if(rev >= 15 && nps >= 15 && hap >= 15) return {title:'名経営者', cap:'売上・顧客・現場、三方すべてを引き上げた1日。' };
+    if(rev < 5 && nps < 5 && hap < 5) return {title:'迷える経営者', cap:'三方どれも動かせず、次の1日で軸を決めましょう。' };
+    // 独走判定 (topが2位より 10 以上)
+    if(top.v - mid.v >= 10){
+      if(top.k === 'rev') return {title:'冷徹CEO', cap:'数字を最短で作った1日。ただし現場と顧客が置き去りになった可能性。' };
+      if(top.k === 'nps') return {title:'顧客ファースト', cap:'顧客からの信頼を最大化した1日。売上は後からついてくるタイプ。' };
+      if(top.k === 'hap') return {title:'現場派', cap:'従業員が笑顔になった1日。長期的に強い会社をつくる判断。' };
+    }
+    // ふたつ高い
+    if(rev >= 10 && nps >= 10) return {title:'商売上手', cap:'売上と顧客満足を両立させた、堅実で強い1日。' };
+    if(rev >= 10 && hap >= 10) return {title:'成長型CEO', cap:'数字を作りながら現場も伸ばした、次期スケーラー。' };
+    if(nps >= 10 && hap >= 10) return {title:'カルチャー派', cap:'顧客と現場の両方から信頼される、じわ強いリーダー。' };
+    return {title:'堅実経営者', cap:'突出しないが、大きな失点もない安定した1日。' };
+  }
+
+  function showFinal(){
+    finalRev.textContent = (state.rev>=0?'+':'') + state.rev;
+    finalNps.textContent = (state.nps>=0?'+':'') + state.nps;
+    finalHap.textContent = (state.hap>=0?'+':'') + state.hap;
+    const j = judgeTitle();
+    finalTitle.textContent = j.title;
+    finalCap.textContent = j.cap;
+    finalLog.innerHTML = state.log.map(l =>
+      '<div><span class="log-t">'+ l.t +'</span>'+ escapeHTML(l.log) +
+      ' <span style="color:#5b6784">(Rev'+ signed(l.r) +' / NPS'+ signed(l.n) +' / 幸福'+ signed(l.h) +')</span></div>'
+    ).join('');
+    finalScreen.classList.add('active');
+  }
+
+  function signed(v){ return v===0?'±0':(v>0?'+'+v:v); }
+
+  function escapeHTML(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function resetGame(){
+    state.running = false;
+    state.fired.clear();
+    state.rev = 0; state.nps = 0; state.hap = 0;
+    state.log = [];
+    const T = window.__timeAxis;
+    T.paused = false;
+    T.gameMode = false;
+    T.hitEnd = false;
+    T.setHour(8);
+    hud.classList.remove('active');
+    finalScreen.classList.remove('active');
+    decModal.classList.remove('active');
+    renderHUD();
+    updateDots();
+  }
+
+  function beginGame(){
+    resetGame();
+    state.running = true;
+    const T = window.__timeAxis;
+    T.setHour(8);
+    T.gameMode = true;
+    T.setSpeed(3); // slightly slower for game
+    // reflect speed button
+    document.querySelectorAll('.tl-speed button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.sp === '3');
+    });
+    startScreen.classList.add('hidden');
+    hud.classList.add('active');
+    renderHUD();
+    updateDots();
+  }
+
+  // ---- 時間軸フック: vHourが決断点を通過したらモーダル発火
+  window.__timeAxis.onTick((hour, isEnd) => {
+    if(!state.running) return;
+    // HUD時刻表示
+    const hh = Math.floor(hour), mm = Math.floor((hour-hh)*60);
+    hudTime.textContent = String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    if(phaseEl) hudPhase.textContent = phaseEl.textContent || '';
+
+    if(isEnd){
+      // 21:00到達 → スコア
+      setTimeout(showFinal, 400);
+      return;
+    }
+
+    // 未消化の中で hour を過ぎた最小indexを発火
+    for(let i=0;i<decisions.length;i++){
+      if(state.fired.has(i)) continue;
+      if(hour >= decisions[i].at){
+        showDecision(i);
+        break;
+      }
+    }
+  });
+
+  // ---- Buttons wiring
+  startBtn.addEventListener('click', beginGame);
+  observeBtn.addEventListener('click', ()=>{
+    startScreen.classList.add('hidden');
+    hud.classList.remove('active');
+    const T = window.__timeAxis;
+    T.paused = false; T.gameMode = false; T.hitEnd = false;
+  });
+  restartBtn.addEventListener('click', beginGame);
+  observeBtn2.addEventListener('click', ()=>{
+    finalScreen.classList.remove('active');
+    hud.classList.remove('active');
+    const T = window.__timeAxis;
+    T.paused = false; T.gameMode = false; T.hitEnd = false;
+    T.setHour(8);
+  });
+
+  buildDots();
+  renderHUD();
+})();
 </script>
 </body>
 </html>
