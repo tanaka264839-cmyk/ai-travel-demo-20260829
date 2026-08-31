@@ -3272,6 +3272,8 @@ try { clearInterval(roamHandle); } catch(_) {}
   const state = {
     running: false,
     fired: new Set(),
+    currentDecision: null, // 表示中の決断index。表示中は再発火せずDOMを守る
+    finalShown: false,
     rev: 0, nps: 0, hap: 0,
     log: []
   };
@@ -3389,6 +3391,7 @@ try { clearInterval(roamHandle); } catch(_) {}
     const c = d.choices[ci];
     state.rev += c.rev; state.nps += c.nps; state.hap += c.hap;
     state.fired.add(idx);
+    state.currentDecision = null; // 次の決断を発火可能に
     state.log.push({ t: fmtT(d.at), pick: c.txt, log: c.log, r:c.rev, n:c.nps, h:c.hap });
     decModal.classList.remove('active');
     renderHUD();
@@ -3459,6 +3462,8 @@ try { clearInterval(roamHandle); } catch(_) {}
   function resetGame(){
     state.running = false;
     state.fired.clear();
+    state.currentDecision = null;
+    state.finalShown = false;
     state.rev = 0; state.nps = 0; state.hap = 0;
     state.log = [];
     const T = window.__timeAxis;
@@ -3499,15 +3504,21 @@ try { clearInterval(roamHandle); } catch(_) {}
     if(phaseEl) hudPhase.textContent = phaseEl.textContent || '';
 
     if(isEnd){
-      // 21:00到達 → スコア
+      // 21:00到達 → スコア (1回だけ)
+      if(state.finalShown) return;
+      state.finalShown = true;
       setTimeout(showFinal, 400);
       return;
     }
+
+    // 既に決断モーダルを表示中なら何もしない（DOMを毎フレーム再構築させない）
+    if(state.currentDecision !== null) return;
 
     // 未消化の中で hour を過ぎた最小indexを発火
     for(let i=0;i<decisions.length;i++){
       if(state.fired.has(i)) continue;
       if(hour >= decisions[i].at){
+        state.currentDecision = i;
         showDecision(i);
         break;
       }
